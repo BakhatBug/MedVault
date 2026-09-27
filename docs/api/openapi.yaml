@@ -1,0 +1,771 @@
+openapi: 3.0.3
+info:
+  title: MediVault API
+  version: 0.21.0
+  description: |
+    Patient-centric medical records platform. Patients own their data, doctors
+    get scoped time-bound access, caregivers act on behalf of linked patients.
+
+    **Authentication.** All endpoints except `/auth/*` and `/emergency/:patientCode`
+    require a Bearer JWT in the `Authorization` header. Tokens are issued at
+    `/auth/login` and `/auth/verify-otp`; refresh tokens rotate at `/auth/refresh`.
+
+    **Roles.** `PATIENT`, `DOCTOR`, `CAREGIVER`, `ADMIN`. Endpoints declare which
+    roles can call them via the role-gate preHandler. Mismatched role returns
+    `403 forbidden`.
+
+    **Error shape.** All errors return `{ "error": "<code>", "message": "<human>"}`.
+    Validation errors additionally include `issues: [{path, message, code}]`.
+
+  contact:
+    name: MediVault
+    url: https://medivault.app
+
+servers:
+  - url: http://localhost:3001/v1
+    description: Local development
+  - url: https://api.medivault.app/v1
+    description: Production (not deployed yet)
+
+tags:
+  - name: Auth
+  - name: Records
+  - name: Access
+  - name: Medications
+  - name: Interactions
+  - name: Timeline
+  - name: Emergency
+  - name: Caregivers
+  - name: Patients (Doctor view)
+  - name: Profile
+
+paths:
+  /auth/register:
+    post:
+      tags: [Auth]
+      summary: Register a new account
+      description: Creates a PENDING_OTP user. Patient receives a `patientCode` (MVK-YYYY-NNNNN) after activation.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RegisterBody' }
+      responses:
+        '201': { description: Registered; OTP sent, $ref: '#/components/responses/Registered' }
+        '409': { description: Email or phone already taken, $ref: '#/components/responses/Error' }
+        '400': { description: Validation error, $ref: '#/components/responses/Error' }
+
+  /auth/verify-otp:
+    post:
+      tags: [Auth]
+      summary: Verify the OTP sent during registration or login
+      description: On success activates the account and issues `accessToken` + `refreshToken`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [userId, code, purpose]
+              properties:
+                userId: { type: string, format: uuid }
+                code: { type: string, pattern: '^\d{6}$' }
+                purpose: { type: string, enum: [registration, login, password_reset] }
+      responses:
+        '200': { description: Verified; tokens issued, $ref: '#/components/responses/Tokens' }
+        '400': { description: OTP invalid or expired, $ref: '#/components/responses/Error' }
+
+  /auth/resend-otp:
+    post:
+      tags: [Auth]
+      summary: Resend an OTP code
+      description: 60-second cooldown per user per purpose. Older OTPs are invalidated.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [userId, purpose]
+              properties:
+                userId: { type: string, format: uuid }
+                purpose: { type: string, enum: [registration, login, password_reset] }
+      responses:
+        '200':
+          description: Resent
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: { resent: { type: boolean }, cooldownSeconds: { type: integer } }
+        '429': { description: Cooldown not elapsed, $ref: '#/components/responses/Error' }
+        '400': { description: Wrong account state, $ref: '#/components/responses/Error' }
+        '404': { description: User not found, $ref: '#/components/responses/Error' }
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Email/phone + password login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [emailOrPhone, password]
+              properties:
+                emailOrPhone: { type: string }
+                password: { type: string, format: password }
+      responses:
+        '200': { description: Authenticated, $ref: '#/components/responses/Tokens' }
+        '401': { description: Invalid credentials, $ref: '#/components/responses/Error' }
+        '403': { description: Account not active, $ref: '#/components/responses/Error' }
+
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Rotate the refresh token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refreshToken]
+              properties: { refreshToken: { type: string } }
+      responses:
+        '200': { description: New token pair, $ref: '#/components/responses/Tokens' }
+        '401': { description: Refresh token invalid or revoked, $ref: '#/components/responses/Error' }
+
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: Revoke the refresh token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refreshToken]
+              properties: { refreshToken: { type: string } }
+      responses:
+        '204': { description: Logged out }
+
+  /me:
+    get:
+      tags: [Profile]
+      summary: Current authenticated user
+      security: [{ bearer: [] }]
+      responses:
+        '200': { description: User profile }
+        '401': { description: Missing or bad token, $ref: '#/components/responses/Error' }
+
+  /me/emergency-disclosure:
+    get:
+      tags: [Profile, Emergency]
+      summary: Get which fields appear in the public emergency view
+      security: [{ bearer: [] }]
+      responses:
+        '200':
+          description: Disclosure flags
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  disclosure: { $ref: '#/components/schemas/EmergencyDisclosure' }
+    patch:
+      tags: [Profile, Emergency]
+      summary: Update disclosure flags
+      security: [{ bearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EmergencyDisclosure' }
+      responses:
+        '200': { description: Updated }
+
+  /me/drug-interactions:
+    get:
+      tags: [Profile, Interactions]
+      summary: Cached drug-interaction check for the patient's current active meds
+      security: [{ bearer: [] }]
+      responses:
+        '200': { description: Cached interaction set or no_check_yet }
+
+  /me/drug-interactions/refresh:
+    post:
+      tags: [Profile, Interactions]
+      summary: Force a re-check (only spends tokens when med set changes)
+      security: [{ bearer: [] }]
+      responses:
+        '200': { description: Interactions, $ref: '#/components/responses/Interactions' }
+
+  /me/timeline:
+    get:
+      tags: [Timeline]
+      summary: Chronological feed of all health events
+      security: [{ bearer: [] }]
+      parameters:
+        - { in: query, name: from, schema: { type: string, format: date } }
+        - { in: query, name: to, schema: { type: string, format: date } }
+        - { in: query, name: types, schema: { type: string }, description: 'Comma-separated event types' }
+        - { in: query, name: limit, schema: { type: integer, default: 50, maximum: 200 } }
+        - { in: query, name: offset, schema: { type: integer, default: 0 } }
+      responses:
+        '200': { description: Timeline events }
+
+  /records/presign:
+    post:
+      tags: [Records]
+      summary: Get a pre-signed S3 PUT URL
+      description: File never passes through the API. Client PUTs directly to S3 with the returned URL.
+      security: [{ bearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [mimeType, sizeBytes, sha256]
+              properties:
+                mimeType: { type: string, enum: ['application/pdf', 'image/jpeg', 'image/png'] }
+                sizeBytes: { type: integer, maximum: 26214400, description: '25 MB cap' }
+                sha256: { type: string, pattern: '^[a-f0-9]{64}$' }
+      responses:
+        '200':
+          description: Pre-signed URL
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  uploadUrl: { type: string, format: uri }
+                  s3Key: { type: string }
+                  expiresInSeconds: { type: integer }
+
+  /records/confirm:
+    post:
+      tags: [Records]
+      summary: Confirm a completed S3 upload — creates the record + queues AI extraction
+      security: [{ bearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ConfirmRecordBody' }
+      responses:
+        '201':
+          description: Record created
+          content:
+            application/json:
+              schema: { type: object, properties: { recordId: { type: string, format: uuid } } }
+        '403': { description: s3Key not for the calling patient, $ref: '#/components/responses/Error' }
+
+  /records:
+    get:
+      tags: [Records]
+      summary: List own records
+      security: [{ bearer: [] }]
+      parameters:
+        - { in: query, name: category, schema: { $ref: '#/components/schemas/RecordCategory' } }
+        - { in: query, name: limit, schema: { type: integer, default: 50, maximum: 100 } }
+        - { in: query, name: cursor, schema: { type: string, format: uuid } }
+      responses:
+        '200': { description: Records page }
+
+  /records/{id}:
+    get:
+      tags: [Records]
+      summary: Get a single record (with extracted FHIR)
+      security: [{ bearer: [] }]
+      parameters: [ { in: path, name: id, required: true, schema: { type: string, format: uuid } } ]
+      responses:
+        '200': { description: Record }
+        '404': { description: Not found, $ref: '#/components/responses/Error' }
+    delete:
+      tags: [Records]
+      summary: Soft-delete a record
+      security: [{ bearer: [] }]
+      parameters: [ { in: path, name: id, required: true, schema: { type: string, format: uuid } } ]
+      responses:
+        '204': { description: Deleted }
+
+  /records/{id}/view-url:
+    get:
+      tags: [Records]
+      summary: Get a short-lived signed GET URL for the record's file
+      security: [{ bearer: [] }]
+      parameters: [ { in: path, name: id, required: true, schema: { type: string, format: uuid } } ]
+      responses:
+        '200':
+          description: Signed URL
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: { url: { type: string, format: uri }, expiresInSeconds: { type: integer } }
+
+  /medications:
+    post:
+      tags: [Medications]
+      summary: Add a medication
+      security: [{ bearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AddMedicationBody' }
+      responses:
+        '201': { description: Created, content: { application/json: { schema: { type: object, properties: { id: { type: string, format: uuid } } } } } }
+    get:
+      tags: [Medications]
+      summary: List own medications
+      security: [{ bearer: [] }]
+      parameters:
+        - { in: query, name: includeInactive, schema: { type: boolean } }
+        - { in: query, name: limit, schema: { type: integer, default: 50 } }
+      responses:
+        '200': { description: Medications list }
+
+  /medications/{id}:
+    get:
+      tags: [Medications]
+      summary: Get a single medication
+      security: [{ bearer: [] }]
+      parameters: [ { in: path, name: id, required: true, schema: { type: string, format: uuid } } ]
+      responses:
+        '200': { description: Medication }
+    patch:
+      tags: [Medications]
+      summary: Update fields on an active medication
+      security: [{ bearer: [] }]
+      parameters: [ { in: path, name: id, required: true, schema: { type: string, format: uuid } } ]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/AddMedicationBody' } } } }
+      responses:
+        '200': { description: Updated }
+        '409': { description: Cannot edit a discontinued medication, $ref: '#/components/responses/Error' }
+    delete:
+      tags: [Medications]
+      summary: Soft-delete (use for typo entries; preserves history for clinical changes)
+      security: [{ bearer: [] }]
+      parameters: [ { in: path, name: id, required: true, schema: { type: string, format: uuid } } ]
+      responses: { '204': { description: Deleted } }
+
+  /medications/{id}/discontinue:
+    post:
+      tags: [Medications]
+      summary: Mark a medication as discontinued (clinical event, preserves history)
+      security: [{ bearer: [] }]
+      parameters: [ { in: path, name: id, required: true, schema: { type: string, format: uuid } } ]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                endDate: { type: string, format: date }
+                reason: { type: string }
+      responses: { '204': { description: Discontinued } }
+
+  /access/request:
+    post:
+      tags: [Access]
+      summary: 'Doctor: request access to a patient by patient code'
+      security: [{ bearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [patientCode]
+              properties:
+                patientCode: { type: string, pattern: '^MVK-\d{4}-\d{5,}$' }
+                note: { type: string }
+      responses:
+        '201': { description: Request created }
+        '403': { description: Doctor not verified, $ref: '#/components/responses/Error' }
+        '404': { description: Patient not found, $ref: '#/components/responses/Error' }
+        '409': { description: Duplicate active request, $ref: '#/components/responses/Error' }
+
+  /access/incoming:
+    get:
+      tags: [Access]
+      summary: 'Patient: list incoming access requests + grants'
+      security: [{ bearer: [] }]
+      responses: { '200': { description: List of access permissions } }
+
+  /access/outgoing:
+    get:
+      tags: [Access]
+      summary: 'Doctor: list own outgoing requests + active grants'
+      security: [{ bearer: [] }]
+      responses: { '200': { description: List of access permissions } }
+
+  /access/{id}/approve:
+    post:
+      tags: [Access]
+      summary: 'Patient: approve a pending request'
+      security: [{ bearer: [] }]
+      parameters: [ { in: path, name: id, required: true, schema: { type: string, format: uuid } } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [duration]
+              properties: { duration: { type: string, enum: [HOURS_24, DAYS_7, DAYS_30, PERMANENT] } }
+      responses: { '200': { description: Approved } }
+
+  /access/{id}/deny:
+    post:
+      tags: [Access]
+      summary: 'Patient: deny a pending request'
+      security: [{ bearer: [] }]
+      parameters: [ { in: path, name: id, required: true, schema: { type: string, format: uuid } } ]
+      responses: { '204': { description: Denied } }
+
+  /access/{id}/revoke:
+    post:
+      tags: [Access]
+      summary: 'Patient: revoke an active grant'
+      security: [{ bearer: [] }]
+      parameters: [ { in: path, name: id, required: true, schema: { type: string, format: uuid } } ]
+      responses: { '204': { description: Revoked } }
+
+  /patients/{patientCode}:
+    get:
+      tags: [Patients (Doctor view)]
+      summary: 'Doctor: get a patient profile (requires active access)'
+      security: [{ bearer: [] }]
+      parameters: [ { in: path, name: patientCode, required: true, schema: { type: string } } ]
+      responses:
+        '200': { description: Patient profile }
+        '403': { description: No active access, $ref: '#/components/responses/Error' }
+
+  /patients/{patientCode}/records:
+    get:
+      tags: [Patients (Doctor view)]
+      summary: 'Doctor: list a patient''s records'
+      security: [{ bearer: [] }]
+      parameters: [ { in: path, name: patientCode, required: true, schema: { type: string } } ]
+      responses: { '200': { description: Records list } }
+
+  /patients/{patientCode}/medications:
+    get:
+      tags: [Patients (Doctor view)]
+      summary: 'Doctor: list a patient''s medications'
+      security: [{ bearer: [] }]
+      parameters: [ { in: path, name: patientCode, required: true, schema: { type: string } } ]
+      responses: { '200': { description: Medications list } }
+
+  /patients/{patientCode}/drug-interactions:
+    get:
+      tags: [Patients (Doctor view)]
+      summary: 'Doctor: cached drug-interaction check (does not charge doctor''s AI rate limit)'
+      security: [{ bearer: [] }]
+      parameters: [ { in: path, name: patientCode, required: true, schema: { type: string } } ]
+      responses: { '200': { description: Interactions } }
+
+  /patients/{patientCode}/summary:
+    get:
+      tags: [Patients (Doctor view)]
+      summary: 'Doctor: get cached AI summary; generate if missing'
+      security: [{ bearer: [] }]
+      parameters: [ { in: path, name: patientCode, required: true, schema: { type: string } } ]
+      responses: { '200': { description: AI summary } }
+
+  /patients/{patientCode}/summary/refresh:
+    post:
+      tags: [Patients (Doctor view)]
+      summary: 'Doctor: force regenerate the AI summary'
+      security: [{ bearer: [] }]
+      parameters: [ { in: path, name: patientCode, required: true, schema: { type: string } } ]
+      responses: { '200': { description: Refreshed summary } }
+
+  /patients/{patientCode}/ask:
+    post:
+      tags: [Patients (Doctor view)]
+      summary: 'Doctor: ask a free-form question about the patient'
+      security: [{ bearer: [] }]
+      parameters: [ { in: path, name: patientCode, required: true, schema: { type: string } } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [question]
+              properties: { question: { type: string, minLength: 3, maxLength: 1000 } }
+      responses:
+        '200':
+          description: AI answer
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  answer: { type: string }
+                  modelId: { type: string }
+                  generatedAt: { type: string, format: date-time }
+                  tokens: { type: object, properties: { input: { type: integer }, output: { type: integer } } }
+                  disclaimer: { type: string }
+        '429': { description: AI rate limit reached, $ref: '#/components/responses/Error' }
+
+  /patients/{patientCode}/timeline:
+    get:
+      tags: [Patients (Doctor view)]
+      summary: 'Doctor: chronological timeline for a patient'
+      security: [{ bearer: [] }]
+      parameters: [ { in: path, name: patientCode, required: true, schema: { type: string } } ]
+      responses: { '200': { description: Timeline events } }
+
+  /emergency/{patientCode}:
+    get:
+      tags: [Emergency]
+      summary: Public emergency view (unauthenticated, IP-rate-limited)
+      description: |
+        Returns the patient-disclosed subset of critical info. Used by paramedic
+        QR scans. Rate-limited to 10/min/IP. Returns identical 404 for "not
+        found" and "exists but suspended" — no existence leak.
+      parameters: [ { in: path, name: patientCode, required: true, schema: { type: string } } ]
+      responses:
+        '200':
+          description: Emergency view
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  patientCode: { type: string }
+                  name: { type: string, description: 'First name + last initial' }
+                  ageYears: { type: integer }
+                  bloodType: { type: string, nullable: true }
+                  allergies: { type: array, nullable: true, items: { type: string } }
+                  currentMedications: { type: array, nullable: true, items: { type: string } }
+                  emergencyContact: { type: object, nullable: true }
+                  lastUpdated: { type: string, format: date-time }
+                  viewedAt: { type: string, format: date-time }
+                  disclaimer: { type: string }
+        '404': { description: Not found, $ref: '#/components/responses/Error' }
+        '429': { description: Rate limit exceeded, $ref: '#/components/responses/Error' }
+
+  /caregivers/invite:
+    post:
+      tags: [Caregivers]
+      summary: 'Patient: invite a caregiver by email or phone'
+      security: [{ bearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              oneOf:
+                - required: [caregiverEmail]
+                - required: [caregiverPhoneE164]
+              properties:
+                caregiverEmail: { type: string, format: email }
+                caregiverPhoneE164: { type: string }
+      responses: { '201': { description: Invitation sent } }
+
+  /caregivers/incoming:
+    get:
+      tags: [Caregivers]
+      summary: 'Caregiver: list incoming invitations + active links'
+      security: [{ bearer: [] }]
+      responses: { '200': { description: Caregiver links } }
+
+  /caregivers/outgoing:
+    get:
+      tags: [Caregivers]
+      summary: 'Patient: list outgoing invitations + active caregivers'
+      security: [{ bearer: [] }]
+      responses: { '200': { description: Caregiver links } }
+
+  /caregivers/{id}/accept:
+    post:
+      tags: [Caregivers]
+      summary: 'Caregiver: accept an invitation'
+      security: [{ bearer: [] }]
+      parameters: [ { in: path, name: id, required: true, schema: { type: string, format: uuid } } ]
+      responses: { '204': { description: Accepted } }
+
+  /caregivers/{id}/decline:
+    post:
+      tags: [Caregivers]
+      summary: 'Caregiver: decline an invitation'
+      security: [{ bearer: [] }]
+      parameters: [ { in: path, name: id, required: true, schema: { type: string, format: uuid } } ]
+      responses: { '204': { description: Declined } }
+
+  /caregivers/{id}/revoke:
+    post:
+      tags: [Caregivers]
+      summary: 'Either side: revoke a caregiver link'
+      security: [{ bearer: [] }]
+      parameters: [ { in: path, name: id, required: true, schema: { type: string, format: uuid } } ]
+      responses: { '204': { description: Revoked } }
+
+  /caregivers/patients/{patientCode}/records:
+    get:
+      tags: [Caregivers]
+      summary: 'Caregiver: list linked patient''s records'
+      security: [{ bearer: [] }]
+      parameters: [ { in: path, name: patientCode, required: true, schema: { type: string } } ]
+      responses: { '200': { description: Records list } }
+
+  /caregivers/patients/{patientCode}/records/presign:
+    post:
+      tags: [Caregivers]
+      summary: 'Caregiver: get a pre-signed PUT URL for upload-on-behalf'
+      security: [{ bearer: [] }]
+      parameters: [ { in: path, name: patientCode, required: true, schema: { type: string } } ]
+      responses: { '200': { description: Pre-signed URL } }
+
+  /caregivers/patients/{patientCode}/records/confirm:
+    post:
+      tags: [Caregivers]
+      summary: 'Caregiver: confirm an upload made on behalf of the patient'
+      security: [{ bearer: [] }]
+      parameters: [ { in: path, name: patientCode, required: true, schema: { type: string } } ]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ConfirmRecordBody' } } } }
+      responses: { '201': { description: Record created } }
+
+components:
+  securitySchemes:
+    bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    RegisterBody:
+      type: object
+      required: [email, phoneE164, password, role]
+      properties:
+        email: { type: string, format: email, maxLength: 254 }
+        phoneE164: { type: string, pattern: '^\+[1-9]\d{6,14}$' }
+        password: { type: string, minLength: 8, maxLength: 128 }
+        role: { type: string, enum: [PATIENT, DOCTOR, CAREGIVER] }
+        fullName: { type: string, minLength: 1, maxLength: 200 }
+        dateOfBirth: { type: string, format: date }
+        licenseNumber: { type: string, description: 'Required for DOCTOR role' }
+        licenseCountry: { type: string, minLength: 2, maxLength: 2, description: 'ISO-3166-1 alpha-2' }
+
+    RecordCategory:
+      type: string
+      enum: [LAB_RESULT, PRESCRIPTION, IMAGING, DISCHARGE_SUMMARY, CONSULTATION_NOTE, VACCINATION, INSURANCE, OTHER]
+
+    ConfirmRecordBody:
+      type: object
+      required: [s3Key, category, title, mimeType, sizeBytes, sha256]
+      properties:
+        s3Key: { type: string }
+        category: { $ref: '#/components/schemas/RecordCategory' }
+        title: { type: string, minLength: 1, maxLength: 200 }
+        notes: { type: string, maxLength: 2000 }
+        recordedAt: { type: string, format: date-time }
+        mimeType: { type: string, enum: ['application/pdf', 'image/jpeg', 'image/png'] }
+        sizeBytes: { type: integer, maximum: 26214400 }
+        sha256: { type: string, pattern: '^[a-f0-9]{64}$' }
+
+    AddMedicationBody:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, maxLength: 200 }
+        dosage: { type: string, maxLength: 100 }
+        frequency: { type: string, maxLength: 200 }
+        startDate: { type: string, format: date }
+        prescribingDoctor: { type: string, maxLength: 200 }
+        reminderEnabled: { type: boolean }
+        reminderSchedule:
+          type: object
+          properties:
+            timesPerDay: { type: integer, minimum: 1, maximum: 12 }
+            times: { type: array, items: { type: string, pattern: '^\d{2}:\d{2}$' } }
+            timezone: { type: string }
+
+    EmergencyDisclosure:
+      type: object
+      properties:
+        bloodType: { type: boolean }
+        allergies: { type: boolean }
+        currentMedications: { type: boolean }
+        emergencyContact: { type: boolean }
+
+    Error:
+      type: object
+      properties:
+        error: { type: string, description: 'machine-readable code, e.g. forbidden, validation_error' }
+        message: { type: string }
+        issues:
+          type: array
+          description: 'Present on validation errors only'
+          items:
+            type: object
+            properties:
+              path: { type: array, items: { type: string } }
+              message: { type: string }
+              code: { type: string }
+
+  responses:
+    Tokens:
+      description: Authenticated; tokens issued
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              accessToken: { type: string }
+              refreshToken: { type: string }
+              user:
+                type: object
+                properties:
+                  id: { type: string, format: uuid }
+                  role: { type: string, enum: [PATIENT, DOCTOR, CAREGIVER, ADMIN] }
+                  email: { type: string }
+
+    Registered:
+      description: User created; OTP sent
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              userId: { type: string, format: uuid }
+              nextStep: { type: string, enum: [verify_otp] }
+              message: { type: string }
+
+    Interactions:
+      description: Drug-interaction check result
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              generatedAt: { type: string, format: date-time }
+              modelId: { type: string }
+              medicationsHash: { type: string }
+              medications: { type: array, items: { type: object } }
+              interactions:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    medications: { type: array, items: { type: string } }
+                    severity: { type: string, enum: [minor, moderate, major] }
+                    description: { type: string }
+              cached: { type: boolean }
+              disclaimer: { type: string }
+
+    Error:
+      description: Error
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }

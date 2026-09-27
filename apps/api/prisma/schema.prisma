@@ -1,0 +1,492 @@
+// MediVault — database schema
+// Maps spec §6 tables, plus audit_logs, otp_codes, refresh_tokens, doctor_access_requests, notifications.
+// Clinical data is stored FHIR R4 shaped in jsonb columns alongside relational scaffolding.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// ENUMS
+// ──────────────────────────────────────────────────────────────────────────────
+
+enum UserRole {
+  PATIENT
+  DOCTOR
+  CAREGIVER
+  ADMIN
+}
+
+enum AccountStatus {
+  PENDING_OTP
+  ACTIVE
+  SUSPENDED
+  DELETED
+}
+
+enum DoctorVerificationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  RESUBMIT_REQUESTED
+}
+
+enum RecordCategory {
+  LAB_RESULT
+  PRESCRIPTION
+  IMAGING
+  DISCHARGE_SUMMARY
+  CONSULTATION_NOTE
+  VACCINATION
+  INSURANCE
+  OTHER
+}
+
+enum AIProcessingStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED_RETRYABLE
+  FAILED_PERMANENT
+  UNAVAILABLE
+}
+
+enum AccessPermissionStatus {
+  REQUESTED
+  APPROVED
+  DENIED
+  EXPIRED
+  REVOKED
+}
+
+enum AccessDuration {
+  HOURS_24
+  DAYS_7
+  DAYS_30
+  PERMANENT
+}
+
+enum CaregiverLinkStatus {
+  PENDING
+  ACTIVE
+  REVOKED
+}
+
+enum NotificationKind {
+  ACCESS_REQUEST
+  ACCESS_APPROVED
+  ACCESS_DENIED
+  AI_PROCESSING_DONE
+  MEDICATION_REMINDER
+  CAREGIVER_LINK_REQUEST
+  GENERIC
+}
+
+enum AuditAction {
+  USER_REGISTERED
+  USER_LOGIN
+  USER_LOGIN_FAILED
+  RECORD_UPLOADED
+  RECORD_VIEWED
+  RECORD_DELETED
+  ACCESS_REQUESTED
+  ACCESS_GRANTED
+  ACCESS_DENIED
+  ACCESS_REVOKED
+  AI_CALL
+  DATA_EXPORTED
+  ACCOUNT_DELETED
+  DOCTOR_VERIFIED
+  EMERGENCY_VIEW
+  EMERGENCY_DISCLOSURE_UPDATED
+  MEDICATION_ADDED
+  MEDICATION_UPDATED
+  MEDICATION_DISCONTINUED
+  MEDICATION_DELETED
+  CAREGIVER_INVITED
+  CAREGIVER_ACCEPTED
+  CAREGIVER_DECLINED
+  CAREGIVER_REVOKED
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// CORE — users + role profiles
+// ──────────────────────────────────────────────────────────────────────────────
+
+model User {
+  id              String        @id @default(uuid()) @db.Uuid
+  // Email is normalized to lowercase before write at the application layer.
+  // Avoids needing the citext extension enabled on every target Postgres.
+  email           String        @unique
+  phoneE164       String        @unique @map("phone_e164")
+  passwordHash    String        @map("password_hash")
+  role            UserRole
+  status          AccountStatus @default(PENDING_OTP)
+  // Per-tenant flag for HIPAA-eligible AI routing (Bedrock vs direct Anthropic).
+  // Defaults false; flipped true when tenant signs a BAA-equivalent agreement.
+  hipaaTenant     Boolean       @default(false) @map("hipaa_tenant")
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+  deletedAt       DateTime?     @map("deleted_at")
+
+  patientProfile      PatientProfile?
+  doctorProfile       DoctorProfile?
+  caregiverLinks      CaregiverLink[]      @relation("CaregiverUser")
+  refreshTokens       RefreshToken[]
+  otpCodes            OtpCode[]
+  notifications       Notification[]
+  auditLogs           AuditLog[]
+  uploadedRecords     MedicalRecord[]      @relation("UploadedBy")
+  accessRequests      DoctorAccessPermission[] @relation("DoctorOnAccess")
+  aiCalls             AiCallLog[]
+
+  @@index([role, status])
+  @@map("users")
+}
+
+model PatientProfile {
+  id                  String    @id @default(uuid()) @db.Uuid
+  userId              String    @unique @map("user_id") @db.Uuid
+  // Public-facing patient identifier per spec §4.1 — e.g. MVK-2026-00041.
+  // Generated server-side, never reused, never reassigned.
+  patientCode         String    @unique @map("patient_code")
+  fullName            String    @map("full_name")
+  dateOfBirth         DateTime  @map("date_of_birth") @db.Date
+  bloodType           String?   @map("blood_type")
+  gender              String?
+  heightCm            Decimal?  @map("height_cm") @db.Decimal(5, 2)
+  weightKg            Decimal?  @map("weight_kg") @db.Decimal(5, 2)
+  // Allergies + chronic conditions kept as FHIR AllergyIntolerance / Condition arrays.
+  allergiesFhir       Json      @default("[]") @map("allergies_fhir")
+  chronicConditionsFhir Json    @default("[]") @map("chronic_conditions_fhir")
+  emergencyContact    Json?     @map("emergency_contact")
+  insurance           Json?
+  // Patient-controlled subset rendered by the public emergency QR endpoint.
+  emergencyDisclosure Json      @default("{\"bloodType\":true,\"allergies\":true,\"currentMedications\":true,\"emergencyContact\":true}") @map("emergency_disclosure")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  user                User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  records             MedicalRecord[]
+  medications         Medication[]
+  aiSummaries         AiSummary[]
+  drugInteractionChecks DrugInteractionCheck[]
+  accessPermissions   DoctorAccessPermission[] @relation("PatientOnAccess")
+  caregiverLinks      CaregiverLink[]          @relation("PatientOnLink")
+  timelineEvents      HealthTimelineEvent[]
+
+  @@map("patient_profiles")
+}
+
+model DoctorProfile {
+  id                  String                   @id @default(uuid()) @db.Uuid
+  userId              String                   @unique @map("user_id") @db.Uuid
+  fullName            String                   @map("full_name")
+  licenseNumber       String                   @map("license_number")
+  licenseCountry      String                   @map("license_country") // ISO-3166-1 alpha-2
+  licenseDocS3Key     String?                  @map("license_doc_s3_key")
+  specialty           String?
+  hospitalAffiliation String?                  @map("hospital_affiliation")
+  verificationStatus  DoctorVerificationStatus @default(PENDING) @map("verification_status")
+  verificationNotes   String?                  @map("verification_notes")
+  verifiedAt          DateTime?                @map("verified_at")
+  verifiedByUserId    String?                  @map("verified_by_user_id") @db.Uuid
+  createdAt           DateTime                 @default(now()) @map("created_at")
+  updatedAt           DateTime                 @updatedAt @map("updated_at")
+
+  user                User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([licenseCountry, licenseNumber])
+  @@index([verificationStatus])
+  @@map("doctor_profiles")
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// AUTH SUPPORT
+// ──────────────────────────────────────────────────────────────────────────────
+
+model RefreshToken {
+  id           String    @id @default(uuid()) @db.Uuid
+  userId       String    @map("user_id") @db.Uuid
+  tokenHash    String    @unique @map("token_hash")
+  // Rotation chain — when a refresh token is used, the new one points back here.
+  // Reuse of a revoked token signals theft and triggers chain-wide revocation.
+  parentId     String?   @map("parent_id") @db.Uuid
+  expiresAt    DateTime  @map("expires_at")
+  revokedAt    DateTime? @map("revoked_at")
+  ipAddress    String?   @map("ip_address")
+  userAgent    String?   @map("user_agent")
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, revokedAt])
+  @@map("refresh_tokens")
+}
+
+model OtpCode {
+  id          String    @id @default(uuid()) @db.Uuid
+  userId      String    @map("user_id") @db.Uuid
+  codeHash    String    @map("code_hash")
+  purpose     String    // "registration" | "login" | "password_reset"
+  attempts    Int       @default(0)
+  expiresAt   DateTime  @map("expires_at")
+  consumedAt  DateTime? @map("consumed_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, purpose, consumedAt])
+  @@map("otp_codes")
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// MEDICAL RECORDS + AI EXTRACTION
+// ──────────────────────────────────────────────────────────────────────────────
+
+model MedicalRecord {
+  id                String              @id @default(uuid()) @db.Uuid
+  patientId         String              @map("patient_id") @db.Uuid
+  uploadedByUserId  String              @map("uploaded_by_user_id") @db.Uuid
+  category          RecordCategory
+  title             String
+  notes             String?
+  // S3 object key — file content never leaves S3. API only ever issues pre-signed URLs.
+  s3Key             String              @unique @map("s3_key")
+  mimeType          String              @map("mime_type")
+  sizeBytes         Int                 @map("size_bytes")
+  // SHA-256 of the file as uploaded — for integrity checks + dedup.
+  sha256            String
+  recordedAt        DateTime?           @map("recorded_at") // when the event happened (vs uploaded_at)
+  // Output of the AI extractor — array of FHIR resources (Observation, MedicationRequest, etc.)
+  extractedFhir     Json?               @map("extracted_fhir")
+  aiStatus          AIProcessingStatus  @default(PENDING) @map("ai_status")
+  aiAttempts        Int                 @default(0) @map("ai_attempts")
+  aiLastError       String?             @map("ai_last_error")
+  uploadedAt        DateTime            @default(now()) @map("uploaded_at")
+  updatedAt         DateTime            @updatedAt @map("updated_at")
+  deletedAt         DateTime?           @map("deleted_at")
+
+  patient           PatientProfile      @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  uploadedBy        User                @relation("UploadedBy", fields: [uploadedByUserId], references: [id])
+  medications       Medication[]
+  timelineEvents    HealthTimelineEvent[]
+
+  @@index([patientId, category, deletedAt])
+  @@index([aiStatus])
+  @@map("medical_records")
+}
+
+model Medication {
+  id                  String          @id @default(uuid()) @db.Uuid
+  patientId           String          @map("patient_id") @db.Uuid
+  // Optional — populated when the medication was AI-extracted from an uploaded prescription.
+  sourceRecordId      String?         @map("source_record_id") @db.Uuid
+  name                String
+  // Stored FHIR-shaped so we can swap in a real terminology server (RxNorm, SNOMED) later.
+  medicationFhir      Json            @map("medication_fhir")
+  dosage              String?
+  frequency           String?
+  startDate           DateTime?       @map("start_date") @db.Date
+  endDate             DateTime?       @map("end_date") @db.Date
+  prescribingDoctor   String?         @map("prescribing_doctor")
+  reminderEnabled     Boolean         @default(false) @map("reminder_enabled")
+  reminderSchedule    Json?           @map("reminder_schedule")
+  isActive            Boolean         @default(true) @map("is_active")
+  createdAt           DateTime        @default(now()) @map("created_at")
+  updatedAt           DateTime        @updatedAt @map("updated_at")
+  deletedAt           DateTime?       @map("deleted_at")
+
+  patient             PatientProfile  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  sourceRecord        MedicalRecord?  @relation(fields: [sourceRecordId], references: [id], onDelete: SetNull)
+
+  @@index([patientId, isActive, deletedAt])
+  @@map("medications")
+}
+
+model AiSummary {
+  id                String          @id @default(uuid()) @db.Uuid
+  patientId         String          @map("patient_id") @db.Uuid
+  // Cache key — hashed list of record_ids that fed into this summary.
+  // Lets us avoid regenerating until the underlying record set actually changes.
+  recordSetHash     String          @map("record_set_hash")
+  summaryText       String          @map("summary_text")
+  flags             Json            @default("[]") // drug interactions, lab trends, etc.
+  modelId           String          @map("model_id")
+  inputTokens       Int             @map("input_tokens")
+  outputTokens      Int             @map("output_tokens")
+  createdAt         DateTime        @default(now()) @map("created_at")
+
+  patient           PatientProfile  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@index([patientId, createdAt])
+  @@unique([patientId, recordSetHash])
+  @@map("ai_summaries")
+}
+
+// Drug-interaction check result. Cached by medications_hash so we don't re-call
+// the model unless the active medication set actually changes.
+model DrugInteractionCheck {
+  id              String   @id @default(uuid()) @db.Uuid
+  patientId       String   @map("patient_id") @db.Uuid
+  medicationsHash String   @map("medications_hash")
+  // Array of { medications: string[], severity: "minor"|"moderate"|"major", description }
+  interactions    Json     @default("[]")
+  modelId         String   @map("model_id")
+  inputTokens     Int      @map("input_tokens")
+  outputTokens   Int       @map("output_tokens")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  patient         PatientProfile @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@unique([patientId, medicationsHash])
+  @@index([patientId, createdAt])
+  @@map("drug_interaction_checks")
+}
+
+model AiCallLog {
+  id            String   @id @default(uuid()) @db.Uuid
+  // Spec §8.6 — every Claude call is auditable.
+  callerUserId  String   @map("caller_user_id") @db.Uuid
+  patientId     String?  @map("patient_id") @db.Uuid
+  feature       String   // "extraction" | "summary" | "qa" | "drug_check"
+  modelId       String   @map("model_id")
+  provider      String   // "anthropic" | "bedrock"
+  inputTokens   Int      @map("input_tokens")
+  outputTokens  Int      @map("output_tokens")
+  costUsd       Decimal? @map("cost_usd") @db.Decimal(10, 6)
+  latencyMs     Int      @map("latency_ms")
+  success       Boolean
+  errorCode     String?  @map("error_code")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  caller        User     @relation(fields: [callerUserId], references: [id])
+
+  @@index([patientId, createdAt])
+  @@index([callerUserId, createdAt])
+  @@map("ai_call_logs")
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// DOCTOR ACCESS CONTROL
+// ──────────────────────────────────────────────────────────────────────────────
+
+model DoctorAccessPermission {
+  id              String                  @id @default(uuid()) @db.Uuid
+  patientId       String                  @map("patient_id") @db.Uuid
+  doctorUserId    String                  @map("doctor_user_id") @db.Uuid
+  status          AccessPermissionStatus  @default(REQUESTED)
+  duration        AccessDuration?
+  // Wall-clock window when access is usable. expires_at = null means PERMANENT.
+  approvedAt      DateTime?               @map("approved_at")
+  expiresAt       DateTime?               @map("expires_at")
+  revokedAt       DateTime?               @map("revoked_at")
+  // Auto-expire request (not access) per spec §16.3 — 48h to respond.
+  requestExpiresAt DateTime               @map("request_expires_at")
+  requestNote     String?                 @map("request_note")
+  createdAt       DateTime                @default(now()) @map("created_at")
+  updatedAt       DateTime                @updatedAt @map("updated_at")
+
+  patient         PatientProfile          @relation("PatientOnAccess", fields: [patientId], references: [id], onDelete: Cascade)
+  doctor          User                    @relation("DoctorOnAccess", fields: [doctorUserId], references: [id], onDelete: Cascade)
+
+  @@index([patientId, status])
+  @@index([doctorUserId, status])
+  @@map("doctor_access_permissions")
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// CAREGIVER LINKS
+// ──────────────────────────────────────────────────────────────────────────────
+
+model CaregiverLink {
+  id              String              @id @default(uuid()) @db.Uuid
+  patientId       String              @map("patient_id") @db.Uuid
+  caregiverUserId String              @map("caregiver_user_id") @db.Uuid
+  status          CaregiverLinkStatus @default(PENDING)
+  // Caregivers are read-only on records and can upload on patient's behalf, per spec §4.4.
+  // They explicitly cannot grant doctor access.
+  permissions     Json                @default("{\"viewRecords\":true,\"uploadRecords\":true,\"viewMedications\":true,\"manageDoctorAccess\":false}")
+  invitedAt       DateTime            @default(now()) @map("invited_at")
+  acceptedAt      DateTime?           @map("accepted_at")
+  revokedAt       DateTime?           @map("revoked_at")
+
+  patient         PatientProfile      @relation("PatientOnLink", fields: [patientId], references: [id], onDelete: Cascade)
+  caregiver       User                @relation("CaregiverUser", fields: [caregiverUserId], references: [id], onDelete: Cascade)
+
+  @@unique([patientId, caregiverUserId])
+  @@index([caregiverUserId, status])
+  @@map("caregiver_links")
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// TIMELINE — denormalized chronological view of patient events
+// ──────────────────────────────────────────────────────────────────────────────
+
+model HealthTimelineEvent {
+  id          String          @id @default(uuid()) @db.Uuid
+  patientId   String          @map("patient_id") @db.Uuid
+  recordId    String?         @map("record_id") @db.Uuid
+  eventType   String          @map("event_type") // "diagnosis" | "visit" | "lab" | "medication_started" | "medication_stopped"
+  occurredAt  DateTime        @map("occurred_at")
+  title       String
+  description String?
+  payload     Json            @default("{}")
+  createdAt   DateTime        @default(now()) @map("created_at")
+
+  patient     PatientProfile  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  record      MedicalRecord?  @relation(fields: [recordId], references: [id], onDelete: SetNull)
+
+  @@index([patientId, occurredAt])
+  @@map("health_timeline_events")
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// NOTIFICATIONS
+// ──────────────────────────────────────────────────────────────────────────────
+
+model Notification {
+  id          String           @id @default(uuid()) @db.Uuid
+  userId      String           @map("user_id") @db.Uuid
+  kind        NotificationKind
+  title       String
+  body        String
+  data        Json             @default("{}")
+  readAt      DateTime?        @map("read_at")
+  createdAt   DateTime         @default(now()) @map("created_at")
+
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt, createdAt])
+  @@map("notifications")
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// AUDIT LOG — append-only, every sensitive event
+// ──────────────────────────────────────────────────────────────────────────────
+
+model AuditLog {
+  id            String      @id @default(uuid()) @db.Uuid
+  // Actor — null only for system-initiated events (e.g., scheduled access expiry).
+  actorUserId   String?     @map("actor_user_id") @db.Uuid
+  // Subject — the user/patient whose data was touched. Useful for "who saw my records" queries.
+  subjectUserId String?     @map("subject_user_id") @db.Uuid
+  action        AuditAction
+  // Free-form context (record IDs, permission IDs, etc.) — never raw PHI.
+  metadata      Json        @default("{}")
+  ipAddress     String?     @map("ip_address")
+  userAgent     String?     @map("user_agent")
+  createdAt     DateTime    @default(now()) @map("created_at")
+
+  actor         User?       @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([actorUserId, createdAt])
+  @@index([subjectUserId, createdAt])
+  @@index([action, createdAt])
+  @@map("audit_logs")
+}

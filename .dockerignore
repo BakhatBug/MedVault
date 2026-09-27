@@ -1,0 +1,42 @@
+**/node_modules
+**/dist
+**/build
+**/.next
+**/.expo
+**/.expo-shared
+
+# tests + coverage
+**/coverage
+**/tests
+**/*.test.ts
+
+# editor / OS
+.git
+.github
+.vscode
+.idea
+.DS_Store
+Thumbs.db
+
+# logs / scratch
+**/*.log
+**/.cache
+**/.turbo
+
+# secrets — should never be in an image
+.env
+.env.*
+!.env.example
+
+# spec docs / large binaries
+MediVault_Specification.docx
+docs
+
+# mobile app — has its own build path
+apps/mobile
+
+# scratch
+_unpacked
+_spec_text.txt
+.scratch
+scripts/gen-test-prescription*.py

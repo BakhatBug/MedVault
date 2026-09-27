@@ -1,0 +1,67 @@
+# dependencies
+node_modules/
+.pnpm-store/
+
+# build output
+dist/
+build/
+*.tsbuildinfo
+
+# env / secrets
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# logs
+logs/
+*.log
+npm-debug.log*
+
+# editor
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# test coverage
+coverage/
+
+# prisma
+prisma/migrations/dev.db*
+
+# docker volumes & db data
+.docker-data/
+pgdata/
+miniodata/
+
+# scratch / unpacked spec / large downloads
+_unpacked/
+_spec_text.txt
+.scratch/
+scratch/
+*.zip
+*.tar
+*.gz
+
+# expo / react-native
+.expo/
+.expo-shared/
+
+# android / gradle
+.gradle/
+.gradle-home/
+android/.gradle/
+android/app/build/
+android/build/
+*.apk
+*.aab
+
+# next.js (future admin)
+.next/
+out/

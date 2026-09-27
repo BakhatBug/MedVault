@@ -1,0 +1,383 @@
+{
+  "info": {
+    "name": "MediVault API",
+    "_postman_id": "9e7a3c1b-medi-vault-collection-2026",
+    "description": "Covers the main MediVault endpoints. Set the collection variables baseUrl, patientAccessToken, and doctorAccessToken after running the auth requests.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3001/v1" },
+    { "key": "patientAccessToken", "value": "" },
+    { "key": "doctorAccessToken", "value": "" },
+    { "key": "patientCode", "value": "MVK-2026-00001" },
+    { "key": "permissionId", "value": "" },
+    { "key": "recordId", "value": "" },
+    { "key": "medicationId", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register (patient)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/auth/register", "host": ["{{baseUrl}}"], "path": ["auth", "register"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"alice@example.com\",\n  \"phoneE164\": \"+12025550100\",\n  \"password\": \"hunter22test\",\n  \"role\": \"PATIENT\",\n  \"fullName\": \"Alice Patient\",\n  \"dateOfBirth\": \"1990-04-15\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Verify OTP",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/auth/verify-otp", "host": ["{{baseUrl}}"], "path": ["auth", "verify-otp"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"<from-register>\",\n  \"code\": \"123456\",\n  \"purpose\": \"registration\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Resend OTP",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/auth/resend-otp", "host": ["{{baseUrl}}"], "path": ["auth", "resend-otp"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"<from-register>\",\n  \"purpose\": \"registration\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Login (patient)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const j = pm.response.json();",
+                  "if (j.accessToken) pm.collectionVariables.set('patientAccessToken', j.accessToken);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/auth/login", "host": ["{{baseUrl}}"], "path": ["auth", "login"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"emailOrPhone\": \"alice@example.com\",\n  \"password\": \"hunter22test\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Login (doctor)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const j = pm.response.json();",
+                  "if (j.accessToken) pm.collectionVariables.set('doctorAccessToken', j.accessToken);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/auth/login", "host": ["{{baseUrl}}"], "path": ["auth", "login"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"emailOrPhone\": \"bob@example.com\",\n  \"password\": \"hunter22test\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Profile",
+      "item": [
+        {
+          "name": "Me",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{patientAccessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/me", "host": ["{{baseUrl}}"], "path": ["me"] }
+          }
+        },
+        {
+          "name": "Get emergency disclosure",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{patientAccessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/me/emergency-disclosure", "host": ["{{baseUrl}}"], "path": ["me", "emergency-disclosure"] }
+          }
+        },
+        {
+          "name": "Update emergency disclosure",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{patientAccessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}/me/emergency-disclosure", "host": ["{{baseUrl}}"], "path": ["me", "emergency-disclosure"] },
+            "body": { "mode": "raw", "raw": "{\n  \"bloodType\": false\n}" }
+          }
+        },
+        {
+          "name": "Drug interactions",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{patientAccessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/me/drug-interactions", "host": ["{{baseUrl}}"], "path": ["me", "drug-interactions"] }
+          }
+        },
+        {
+          "name": "Timeline",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{patientAccessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/me/timeline?limit=50", "host": ["{{baseUrl}}"], "path": ["me", "timeline"], "query": [{ "key": "limit", "value": "50" }] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Records",
+      "item": [
+        {
+          "name": "Presign upload",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{patientAccessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}/records/presign", "host": ["{{baseUrl}}"], "path": ["records", "presign"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mimeType\": \"application/pdf\",\n  \"sizeBytes\": 1024,\n  \"sha256\": \"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Confirm upload",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{patientAccessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}/records/confirm", "host": ["{{baseUrl}}"], "path": ["records", "confirm"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"s3Key\": \"<from-presign>\",\n  \"category\": \"PRESCRIPTION\",\n  \"title\": \"Visit\",\n  \"mimeType\": \"application/pdf\",\n  \"sizeBytes\": 1024,\n  \"sha256\": \"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\"\n}"
+            }
+          }
+        },
+        {
+          "name": "List records",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{patientAccessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/records", "host": ["{{baseUrl}}"], "path": ["records"] }
+          }
+        },
+        {
+          "name": "Get record",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{patientAccessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/records/{{recordId}}", "host": ["{{baseUrl}}"], "path": ["records", "{{recordId}}"] }
+          }
+        },
+        {
+          "name": "Get record view URL",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{patientAccessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/records/{{recordId}}/view-url", "host": ["{{baseUrl}}"], "path": ["records", "{{recordId}}", "view-url"] }
+          }
+        },
+        {
+          "name": "Delete record",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{patientAccessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/records/{{recordId}}", "host": ["{{baseUrl}}"], "path": ["records", "{{recordId}}"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Medications",
+      "item": [
+        {
+          "name": "Add medication",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{patientAccessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}/medications", "host": ["{{baseUrl}}"], "path": ["medications"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Lisinopril\",\n  \"dosage\": \"10mg\",\n  \"frequency\": \"once daily\",\n  \"startDate\": \"2026-04-12\"\n}"
+            }
+          }
+        },
+        {
+          "name": "List medications",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{patientAccessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/medications?includeInactive=true", "host": ["{{baseUrl}}"], "path": ["medications"], "query": [{ "key": "includeInactive", "value": "true" }] }
+          }
+        },
+        {
+          "name": "Discontinue medication",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{patientAccessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}/medications/{{medicationId}}/discontinue", "host": ["{{baseUrl}}"], "path": ["medications", "{{medicationId}}", "discontinue"] },
+            "body": { "mode": "raw", "raw": "{\n  \"reason\": \"Switched to alternative\"\n}" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Access (Doctor ↔ Patient)",
+      "item": [
+        {
+          "name": "Doctor requests access",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const j = pm.response.json();",
+                  "if (j.id) pm.collectionVariables.set('permissionId', j.id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{doctorAccessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}/access/request", "host": ["{{baseUrl}}"], "path": ["access", "request"] },
+            "body": { "mode": "raw", "raw": "{\n  \"patientCode\": \"{{patientCode}}\",\n  \"note\": \"Pre-visit chart review\"\n}" }
+          }
+        },
+        {
+          "name": "Patient lists incoming",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{patientAccessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/access/incoming", "host": ["{{baseUrl}}"], "path": ["access", "incoming"] }
+          }
+        },
+        {
+          "name": "Patient approves",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{patientAccessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}/access/{{permissionId}}/approve", "host": ["{{baseUrl}}"], "path": ["access", "{{permissionId}}", "approve"] },
+            "body": { "mode": "raw", "raw": "{\n  \"duration\": \"HOURS_24\"\n}" }
+          }
+        },
+        {
+          "name": "Patient revokes",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{patientAccessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/access/{{permissionId}}/revoke", "host": ["{{baseUrl}}"], "path": ["access", "{{permissionId}}", "revoke"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Doctor view of patient",
+      "item": [
+        {
+          "name": "Patient profile",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{doctorAccessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/patients/{{patientCode}}", "host": ["{{baseUrl}}"], "path": ["patients", "{{patientCode}}"] }
+          }
+        },
+        {
+          "name": "Patient records",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{doctorAccessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/patients/{{patientCode}}/records", "host": ["{{baseUrl}}"], "path": ["patients", "{{patientCode}}", "records"] }
+          }
+        },
+        {
+          "name": "Patient AI summary",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{doctorAccessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/patients/{{patientCode}}/summary", "host": ["{{baseUrl}}"], "path": ["patients", "{{patientCode}}", "summary"] }
+          }
+        },
+        {
+          "name": "Ask AI about patient",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{doctorAccessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}/patients/{{patientCode}}/ask", "host": ["{{baseUrl}}"], "path": ["patients", "{{patientCode}}", "ask"] },
+            "body": { "mode": "raw", "raw": "{\n  \"question\": \"What medications is this patient currently taking?\"\n}" }
+          }
+        },
+        {
+          "name": "Patient drug interactions",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{doctorAccessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/patients/{{patientCode}}/drug-interactions", "host": ["{{baseUrl}}"], "path": ["patients", "{{patientCode}}", "drug-interactions"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Emergency (public)",
+      "item": [
+        {
+          "name": "Emergency view",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/emergency/{{patientCode}}", "host": ["{{baseUrl}}"], "path": ["emergency", "{{patientCode}}"] }
+          }
+        }
+      ]
+    }
+  ]
+}

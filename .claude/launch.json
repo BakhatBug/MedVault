@@ -1,0 +1,35 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "api",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev:api"],
+      "port": 3001
+    },
+    {
+      "name": "infra (postgres + redis + minio)",
+      "runtimeExecutable": "docker",
+      "runtimeArgs": ["compose", "up"],
+      "port": 5433
+    },
+    {
+      "name": "prisma studio",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "db:studio"],
+      "port": 5555
+    },
+    {
+      "name": "minio console",
+      "runtimeExecutable": "docker",
+      "runtimeArgs": ["compose", "up", "minio"],
+      "port": 9001
+    },
+    {
+      "name": "mobile (expo)",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "start", "--workspace=@medivault/mobile"],
+      "port": 8081
+    }
+  ]
+}

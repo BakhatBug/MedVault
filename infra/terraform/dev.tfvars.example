@@ -1,0 +1,18 @@
+# dev.tfvars.example - copy to dev.tfvars and fill secrets. DO NOT commit dev.tfvars
+
+environment = "staging"
+aws_region = "us-east-1"
+# Small resource sizes for staging / dev
+db_instance_class = "db.t4g.small"
+db_allocated_storage = 20
+redis_node_type = "cache.t4g.micro"
+api_desired_count = 1
+api_cpu = 256
+api_memory = 512
+api_image_tag = "dev-local"
+
+# Provide a real ACM cert ARN for HTTPS in prod. For staging you can leave empty
+acm_certificate_arn = ""
+
+# Required secret: Gemini API key (set to empty string if not available; app may still run)
+gemini_api_key = ""

@@ -1,0 +1,107 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  api:
+    name: API — lint + tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: medivault
+          POSTGRES_PASSWORD: medivault
+          POSTGRES_DB: medivault_test
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U medivault -d medivault_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6380:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      # Tests load apps/api/.env.test via dotenv-cli — this just unblocks the
+      # `npm install` step if it runs anything that touches DATABASE_URL early.
+      DATABASE_URL: postgresql://medivault:medivault@localhost:5433/medivault_test?schema=public
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install workspace deps
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npm run db:generate --workspace=@medivault/api
+
+      - name: Push schema to test database
+        run: npm run test:setup-db --workspace=@medivault/api
+
+      - name: Typecheck
+        run: npm run lint --workspace=@medivault/api
+
+      - name: Run tests
+        run: npm test --workspace=@medivault/api
+
+  mobile:
+    name: Mobile — typecheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install workspace deps
+        run: npm ci
+
+      - name: Generate Prisma client (shared types depend on it indirectly)
+        run: npm run db:generate --workspace=@medivault/api
+
+      - name: Typecheck mobile
+        working-directory: apps/mobile
+        run: npx tsc --noEmit
+
+  shared:
+    name: Shared package — typecheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - run: npm ci
+
+      - name: Typecheck shared
+        run: npm run lint --workspace=@medivault/shared

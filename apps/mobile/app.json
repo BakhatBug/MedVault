@@ -1,0 +1,39 @@
+{
+  "expo": {
+    "name": "MediVault",
+    "slug": "medivault",
+    "version": "0.1.0",
+    "scheme": "medivault",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": false,
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "app.medivault.client"
+    },
+    "android": {
+      "package": "app.medivault.client",
+      "adaptiveIcon": {
+        "backgroundColor": "#0B4F6C"
+      }
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "MediVault accesses your photos so you can attach medical documents to your vault.",
+          "cameraPermission": "MediVault uses the camera so you can photograph prescriptions and records to add to your vault."
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
