@@ -15,12 +15,14 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ApiError } from "../../lib/api";
+import { useAuth } from "../../lib/auth-context";
 import { useOutgoingAccess, useRequestAccess } from "../../lib/queries";
-import { colors, radius, spacing } from "../../lib/theme";
+import { colors, radius, shadows, spacing } from "../../lib/theme";
 
 const PATIENT_CODE_REGEX = /^MVK-\d{4}-\d{5,}$/i;
 
 export default function DoctorDashboard() {
+  const { state } = useAuth();
   const router = useRouter();
   const outgoing = useOutgoingAccess();
   const request = useRequestAccess();
@@ -29,9 +31,15 @@ export default function DoctorDashboard() {
   const [note, setNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  // Active grants surface as quick-tap "recent patient" cards.
+  const docName = state.status === "signed-in" ? state.user.fullName ?? "Doctor" : "Doctor";
+
   const activeGrants = useMemo(
     () => outgoing.data?.items.filter((p) => p.status === "APPROVED") ?? [],
+    [outgoing.data],
+  );
+
+  const pendingGrants = useMemo(
+    () => outgoing.data?.items.filter((p) => p.status === "REQUESTED") ?? [],
     [outgoing.data],
   );
 
@@ -44,15 +52,15 @@ export default function DoctorDashboard() {
     try {
       await request.mutateAsync({ patientCode: codeUpper, ...(note.trim() ? { note: note.trim() } : {}) });
       Alert.alert(
-        "Request sent",
-        "The patient has been notified. You'll get access as soon as they approve.",
+        "Access Request Sent",
+        `Access request submitted for ${codeUpper}. The patient will receive a notification to grant access.`,
         [{ text: "OK" }],
       );
       setCode("");
       setNote("");
     } catch (e) {
-      const msg = e instanceof ApiError ? e.message : "Could not send request.";
-      Alert.alert("Request failed", msg);
+      const msg = e instanceof ApiError ? e.message : "Could not send access request.";
+      Alert.alert("Request Failed", msg);
     } finally {
       setSubmitting(false);
     }
@@ -72,77 +80,150 @@ export default function DoctorDashboard() {
             />
           }
         >
-          <Text style={styles.title}>Patient lookup</Text>
-          <Text style={styles.subtitle}>
-            Enter a patient&apos;s MediVault ID to request access. They&apos;ll be notified to approve in their app.
-          </Text>
+          {/* Doctor Header */}
+          <View style={styles.headerCard}>
+            <View style={styles.headerRow}>
+              <View style={styles.avatar}>
+                <Text style={styles.avatarText}>👨‍⚕️</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.welcomeText}>Clinical Workspace</Text>
+                <Text style={styles.docName}>{docName}</Text>
+              </View>
+              <View style={styles.verifiedBadge}>
+                <Text style={styles.verifiedText}>Verified MD ✓</Text>
+              </View>
+            </View>
+          </View>
 
-          <View style={styles.card}>
-            <Text style={styles.label}>Patient ID</Text>
-            <TextInput
-              value={code}
-              onChangeText={setCode}
-              autoCapitalize="characters"
-              autoCorrect={false}
-              placeholder="MVK-2026-00001"
-              placeholderTextColor={colors.textMuted}
-              style={styles.input}
-              editable={!submitting}
-            />
+          {/* Patient Lookup Card */}
+          <View style={styles.lookupCard}>
+            <View style={styles.cardHeaderRow}>
+              <Text style={{ fontSize: 18 }}>🔍</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.cardTitle}>Patient Record Lookup</Text>
+                <Text style={styles.cardSubtitle}>
+                  Enter the patient&apos;s unique MediVault ID (e.g. MVK-2026-00003) to request clinical access.
+                </Text>
+              </View>
+            </View>
 
-            <Text style={[styles.label, { marginTop: spacing.md }]}>Reason for access (optional)</Text>
-            <TextInput
-              value={note}
-              onChangeText={setNote}
-              placeholder="Pre-visit chart review"
-              placeholderTextColor={colors.textMuted}
-              style={[styles.input, styles.notes]}
-              multiline
-              numberOfLines={2}
-              editable={!submitting}
-            />
+            <View style={{ marginTop: spacing.md }}>
+              <Text style={styles.inputLabel}>Patient ID</Text>
+              <TextInput
+                value={code}
+                onChangeText={setCode}
+                autoCapitalize="characters"
+                autoCorrect={false}
+                placeholder="MVK-2026-XXXXX"
+                placeholderTextColor={colors.textMuted}
+                style={styles.input}
+                editable={!submitting}
+              />
+            </View>
+
+            <View style={{ marginTop: spacing.sm }}>
+              <Text style={styles.inputLabel}>Clinical Reason (Optional)</Text>
+              <TextInput
+                value={note}
+                onChangeText={setNote}
+                placeholder="Pre-consultation chart review / Clinical follow-up"
+                placeholderTextColor={colors.textMuted}
+                style={[styles.input, styles.notesInput]}
+                multiline
+                numberOfLines={2}
+                editable={!submitting}
+              />
+            </View>
 
             <Pressable
               onPress={submitRequest}
               disabled={!canSubmit}
               style={({ pressed }) => [
-                styles.button,
-                !canSubmit && { opacity: 0.55 },
+                styles.submitBtn,
+                !canSubmit && { opacity: 0.5 },
                 pressed && canSubmit && { opacity: 0.85 },
               ]}
             >
               {submitting ? (
                 <ActivityIndicator color={colors.primaryText} />
               ) : (
-                <Text style={styles.buttonText}>Request access</Text>
+                <Text style={styles.submitBtnText}>Request Patient Access</Text>
               )}
             </Pressable>
           </View>
 
-          <Text style={styles.sectionTitle}>Active patients</Text>
+          {/* Pending Requests Notice */}
+          {pendingGrants.length > 0 ? (
+            <Pressable
+              onPress={() => router.push("/(doctor)/requests")}
+              style={({ pressed }) => [styles.pendingCard, pressed && { opacity: 0.9 }]}
+            >
+              <Text style={{ fontSize: 16 }}>⏳</Text>
+              <Text style={styles.pendingText}>
+                {pendingGrants.length} access {pendingGrants.length === 1 ? "request is" : "requests are"} waiting for
+                patient approval.
+              </Text>
+              <Text style={styles.pendingLink}>View ›</Text>
+            </Pressable>
+          ) : null}
+
+          {/* Active Patients Section */}
+          <View style={styles.sectionHeaderRow}>
+            <Text style={styles.sectionTitle}>Active Patients ({activeGrants.length})</Text>
+            <Text style={styles.sectionSub}>Patients who have granted you chart access</Text>
+          </View>
+
           {outgoing.isLoading ? (
-            <Text style={styles.muted}>Loading…</Text>
+            <View style={styles.loadingBox}>
+              <ActivityIndicator color={colors.primary} />
+              <Text style={styles.muted}>Loading authorized patients…</Text>
+            </View>
           ) : activeGrants.length === 0 ? (
-            <Text style={styles.muted}>No active grants yet. Request access to a patient above.</Text>
+            <View style={styles.emptyCard}>
+              <Text style={{ fontSize: 32, marginBottom: spacing.xs }}>📋</Text>
+              <Text style={styles.emptyTitle}>No Active Patients</Text>
+              <Text style={styles.emptySub}>
+                Enter a Patient ID above to request access. Once the patient approves in their app, their chart will
+                appear here.
+              </Text>
+            </View>
           ) : (
-            activeGrants.map((g) => (
-              <Pressable
-                key={g.id}
-                onPress={() => router.push({ pathname: "/(doctor)/patient/[code]", params: { code: g.patient.patientCode } })}
-                style={({ pressed }) => [styles.patientCard, pressed && { opacity: 0.92 }]}
-              >
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.patientName}>{g.patient.fullName}</Text>
-                  <Text style={styles.patientCode}>{g.patient.patientCode}</Text>
-                  {g.expiresAt ? (
-                    <Text style={styles.patientMeta}>Access expires {formatDate(g.expiresAt)}</Text>
-                  ) : (
-                    <Text style={styles.patientMeta}>Permanent access</Text>
-                  )}
-                </View>
-                <Text style={styles.chevron}>›</Text>
-              </Pressable>
-            ))
+            activeGrants.map((g) => {
+              const initials = g.patient.fullName
+                .split(" ")
+                .map((n) => n[0])
+                .join("")
+                .toUpperCase()
+                .slice(0, 2);
+
+              return (
+                <Pressable
+                  key={g.id}
+                  onPress={() =>
+                    router.push({
+                      pathname: "/(doctor)/patient/[code]",
+                      params: { code: g.patient.patientCode },
+                    })
+                  }
+                  style={({ pressed }) => [styles.patientCard, pressed && styles.patientCardPressed]}
+                >
+                  <View style={styles.patientAvatar}>
+                    <Text style={styles.patientAvatarText}>{initials}</Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.patientName}>{g.patient.fullName}</Text>
+                    <Text style={styles.patientCode}>{g.patient.patientCode}</Text>
+                    <Text style={styles.patientMeta}>
+                      {g.expiresAt ? `Access active until ${formatDate(g.expiresAt)}` : "Permanent clinical access"}
+                    </Text>
+                  </View>
+                  <View style={styles.openChartBtn}>
+                    <Text style={styles.openChartBtnText}>Chart →</Text>
+                  </View>
+                </Pressable>
+              );
+            })
           )}
         </ScrollView>
       </KeyboardAvoidingView>
@@ -153,22 +234,55 @@ export default function DoctorDashboard() {
 function formatDate(iso: string): string {
   const d = new Date(iso);
   if (!Number.isFinite(d.getTime())) return iso;
-  return d.toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 }
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
-  scroll: { padding: spacing.lg, paddingBottom: spacing.xxl },
-  title: { fontSize: 24, fontWeight: "700", color: colors.text },
-  subtitle: { color: colors.textMuted, marginTop: spacing.xs, marginBottom: spacing.lg, fontSize: 13 },
-  card: {
+  scroll: { padding: spacing.lg, paddingBottom: spacing.xxxl },
+  headerCard: {
     backgroundColor: colors.surface,
-    borderRadius: radius.lg,
+    borderRadius: radius.xl,
     padding: spacing.lg,
     borderWidth: 1,
     borderColor: colors.border,
+    marginBottom: spacing.md,
+    ...shadows.sm,
   },
-  label: { color: colors.text, fontSize: 13, fontWeight: "600", marginBottom: spacing.xs },
+  headerRow: { flexDirection: "row", alignItems: "center", gap: spacing.md },
+  avatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.backgroundAlt,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  avatarText: { fontSize: 22 },
+  welcomeText: { fontSize: 12, color: colors.textMuted, fontWeight: "500" },
+  docName: { fontSize: 18, fontWeight: "800", color: colors.text, letterSpacing: -0.3 },
+  verifiedBadge: {
+    backgroundColor: colors.successLight,
+    paddingHorizontal: spacing.sm + 2,
+    paddingVertical: 4,
+    borderRadius: radius.full,
+    borderWidth: 1,
+    borderColor: colors.successBorder,
+  },
+  verifiedText: { fontSize: 11, fontWeight: "700", color: colors.successText },
+  lookupCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.xl,
+    padding: spacing.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginBottom: spacing.md,
+    ...shadows.sm,
+  },
+  cardHeaderRow: { flexDirection: "row", alignItems: "flex-start", gap: spacing.sm },
+  cardTitle: { fontSize: 16, fontWeight: "800", color: colors.text },
+  cardSubtitle: { fontSize: 12, color: colors.textMuted, marginTop: 2, lineHeight: 16 },
+  inputLabel: { fontSize: 12, fontWeight: "700", color: colors.text, marginBottom: 4 },
   input: {
     borderWidth: 1,
     borderColor: colors.border,
@@ -179,29 +293,78 @@ const styles = StyleSheet.create({
     color: colors.text,
     backgroundColor: colors.background,
   },
-  notes: { minHeight: 60, textAlignVertical: "top" },
-  button: {
-    marginTop: spacing.lg,
+  notesInput: { minHeight: 56, textAlignVertical: "top" },
+  submitBtn: {
+    marginTop: spacing.md,
     backgroundColor: colors.primary,
-    borderRadius: radius.md,
+    borderRadius: radius.lg,
     paddingVertical: spacing.md + 2,
     alignItems: "center",
+    ...shadows.sm,
   },
-  buttonText: { color: colors.primaryText, fontWeight: "600", fontSize: 16 },
-  sectionTitle: { marginTop: spacing.xl, marginBottom: spacing.md, color: colors.text, fontWeight: "600", fontSize: 16 },
+  submitBtnText: { color: colors.primaryText, fontWeight: "700", fontSize: 14 },
+  pendingCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: colors.warningLight,
+    padding: spacing.md,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.warningBorder,
+    marginBottom: spacing.md,
+    gap: spacing.sm,
+  },
+  pendingText: { flex: 1, fontSize: 12, color: colors.warningText, fontWeight: "600" },
+  pendingLink: { fontSize: 13, color: colors.warningText, fontWeight: "700" },
+  sectionHeaderRow: { marginTop: spacing.md, marginBottom: spacing.sm },
+  sectionTitle: { fontSize: 16, fontWeight: "800", color: colors.text },
+  sectionSub: { fontSize: 12, color: colors.textMuted, marginTop: 1 },
+  loadingBox: { padding: spacing.xl, alignItems: "center", gap: spacing.xs },
+  emptyCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.xl,
+    padding: spacing.xxl,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginTop: spacing.xs,
+    ...shadows.sm,
+  },
+  emptyTitle: { fontSize: 16, fontWeight: "700", color: colors.text },
+  emptySub: { fontSize: 13, color: colors.textMuted, textAlign: "center", marginTop: 4, paddingHorizontal: spacing.md },
   patientCard: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: colors.surface,
-    borderRadius: radius.md,
-    padding: spacing.md,
+    borderRadius: radius.xl,
+    padding: spacing.md + 2,
     marginBottom: spacing.sm,
     borderWidth: 1,
     borderColor: colors.border,
+    gap: spacing.md,
+    ...shadows.sm,
   },
-  patientName: { color: colors.text, fontWeight: "600", fontSize: 14 },
-  patientCode: { color: colors.textMuted, fontSize: 12, marginTop: 2, letterSpacing: 0.5 },
-  patientMeta: { color: colors.textMuted, fontSize: 11, marginTop: spacing.xs },
-  chevron: { color: colors.textMuted, fontSize: 22, marginLeft: spacing.md },
+  patientCardPressed: { backgroundColor: colors.backgroundAlt },
+  patientAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.primaryLight,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: colors.primaryMuted,
+  },
+  patientAvatarText: { fontSize: 15, fontWeight: "800", color: colors.primaryDark },
+  patientName: { color: colors.text, fontWeight: "700", fontSize: 15 },
+  patientCode: { color: colors.primaryDark, fontSize: 12, marginTop: 2, fontWeight: "600" },
+  patientMeta: { color: colors.textMuted, fontSize: 11, marginTop: 2 },
+  openChartBtn: {
+    backgroundColor: colors.primaryLight,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 6,
+    borderRadius: radius.md,
+  },
+  openChartBtnText: { color: colors.primaryDark, fontSize: 12, fontWeight: "700" },
   muted: { color: colors.textMuted, fontSize: 13 },
 });

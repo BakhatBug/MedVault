@@ -3,8 +3,10 @@ import { useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Linking,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Switch,
   Text,
@@ -19,11 +21,8 @@ import {
   useEmergencyDisclosure,
   useUpdateEmergencyDisclosure,
 } from "../../lib/queries";
-import { colors, radius, spacing } from "../../lib/theme";
+import { colors, radius, shadows, spacing } from "../../lib/theme";
 
-// Renders the emergency QR for the patient's own patient_code. Scanning the QR
-// hits /v1/emergency/:patientCode which returns the disclosed subset of fields
-// without auth — the paramedic scenario from spec §4.2.6.
 export default function EmergencyScreen() {
   const { state } = useAuth();
   const disclosure = useEmergencyDisclosure();
@@ -33,7 +32,7 @@ export default function EmergencyScreen() {
   if (state.status !== "signed-in") {
     return (
       <SafeAreaView style={styles.safe}>
-        <ActivityIndicator />
+        <ActivityIndicator color={colors.primary} />
       </SafeAreaView>
     );
   }
@@ -46,37 +45,73 @@ export default function EmergencyScreen() {
     try {
       await update.mutateAsync({ [field]: !current });
     } catch (e) {
-      Alert.alert("Could not update", e instanceof Error ? e.message : "Try again.");
+      Alert.alert("Update Failed", e instanceof Error ? e.message : "Try again.");
     } finally {
       setPending(null);
     }
   }
 
+  async function previewEmergencyPage() {
+    if (!emergencyUrl) return;
+    if (Platform.OS === "web") {
+      window.open(emergencyUrl, "_blank");
+    } else {
+      await Linking.openURL(emergencyUrl);
+    }
+  }
+
   return (
     <SafeAreaView style={styles.safe}>
-      <Stack.Screen options={{ title: "Emergency QR", headerBackTitle: "Profile" }} />
-      <View style={styles.scroll}>
-        <Text style={styles.h1}>Your emergency QR</Text>
-        <Text style={styles.sub}>
-          A paramedic can scan this without unlocking your phone to see the critical info you choose to share.
-        </Text>
-
-        <View style={styles.qrCard}>
-          {emergencyUrl ? (
-            <QRCode
-              value={emergencyUrl}
-              size={200}
-              backgroundColor={colors.surface}
-              color={colors.text}
-            />
-          ) : (
-            <Text style={styles.muted}>Patient ID not assigned yet.</Text>
-          )}
-          {patientCode ? <Text style={styles.code}>{patientCode}</Text> : null}
+      <Stack.Screen options={{ title: "Emergency Medical Card", headerBackTitle: "Home" }} />
+      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+        {/* Paramedic Notice Banner */}
+        <View style={styles.banner}>
+          <Text style={{ fontSize: 24 }}>🚑</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.bannerTitle}>Paramedic & First Responder Access</Text>
+            <Text style={styles.bannerSub}>
+              First responders can scan this QR code without phone passcode to instantly view critical emergency info
+              you disclose.
+            </Text>
+          </View>
         </View>
 
-        <Text style={styles.sectionTitle}>What appears when scanned</Text>
-        <Text style={styles.sectionSub}>Toggle off anything you don&apos;t want disclosed publicly.</Text>
+        {/* QR Code Presentation Card */}
+        <View style={styles.qrCard}>
+          <View style={styles.qrFrame}>
+            {emergencyUrl ? (
+              <QRCode
+                value={emergencyUrl}
+                size={210}
+                backgroundColor={colors.surface}
+                color={colors.text}
+              />
+            ) : (
+              <Text style={styles.muted}>Assigning Patient Code…</Text>
+            )}
+          </View>
+          {patientCode ? (
+            <View style={styles.codePill}>
+              <Text style={styles.codePillLabel}>PATIENT ID:</Text>
+              <Text style={styles.codePillValue}>{patientCode}</Text>
+            </View>
+          ) : null}
+
+          {emergencyUrl ? (
+            <Pressable
+              onPress={previewEmergencyPage}
+              style={({ pressed }) => [styles.previewBtn, pressed && { opacity: 0.85 }]}
+            >
+              <Text style={styles.previewBtnText}>Open Public Emergency Telemetry ↗</Text>
+            </Pressable>
+          ) : null}
+        </View>
+
+        {/* Disclosure Controls */}
+        <View style={styles.sectionHeaderRow}>
+          <Text style={styles.sectionTitle}>Publicly Disclosed Fields</Text>
+          <Text style={styles.sectionSub}>Choose which data points appear on the emergency scan page</Text>
+        </View>
 
         {disclosure.isLoading ? (
           <View style={styles.spinner}>
@@ -87,72 +122,81 @@ export default function EmergencyScreen() {
         ) : disclosure.data ? (
           <View style={styles.toggleCard}>
             <ToggleRow
-              label="Blood type"
+              icon="🩸"
+              label="Blood Type"
+              desc="Discloses ABO/Rh blood group"
               value={disclosure.data.disclosure.bloodType}
               pending={pending === "bloodType"}
               onToggle={() => toggle("bloodType", disclosure.data!.disclosure.bloodType)}
             />
             <ToggleRow
-              label="Allergies"
+              icon="⚠️"
+              label="Documented Allergies"
+              desc="Severe drug & substance allergies"
               value={disclosure.data.disclosure.allergies}
               pending={pending === "allergies"}
               onToggle={() => toggle("allergies", disclosure.data!.disclosure.allergies)}
             />
             <ToggleRow
-              label="Current medications"
+              icon="💊"
+              label="Active Medications"
+              desc="Current active prescriptions"
               value={disclosure.data.disclosure.currentMedications}
               pending={pending === "currentMedications"}
-              onToggle={() => toggle("currentMedications", disclosure.data!.disclosure.currentMedications)}
+              onToggle={() =>
+                toggle("currentMedications", disclosure.data!.disclosure.currentMedications)
+              }
             />
             <ToggleRow
-              label="Emergency contact"
+              icon="📞"
+              label="Emergency Contacts"
+              desc="Next of kin & primary care contact"
               value={disclosure.data.disclosure.emergencyContact}
               pending={pending === "emergencyContact"}
-              onToggle={() => toggle("emergencyContact", disclosure.data!.disclosure.emergencyContact)}
-              last
+              onToggle={() =>
+                toggle("emergencyContact", disclosure.data!.disclosure.emergencyContact)
+              }
+              isLast
             />
           </View>
         ) : null}
-
-        <Pressable
-          onPress={() => emergencyUrl && Alert.alert("Emergency URL", emergencyUrl)}
-          style={({ pressed }) => [styles.linkBtn, pressed && { opacity: 0.85 }]}
-        >
-          <Text style={styles.linkBtnText}>Show URL</Text>
-        </Pressable>
-
-        <Text style={styles.disclaimer}>
-          {Platform.OS === "ios" ? "Tip" : "Note"}: anyone with this QR (or the URL it encodes) can see the disclosed
-          fields. Don&apos;t share screenshots publicly.
-        </Text>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
 function ToggleRow({
+  icon,
   label,
+  desc,
   value,
   pending,
   onToggle,
-  last,
+  isLast = false,
 }: {
+  icon: string;
   label: string;
+  desc: string;
   value: boolean;
   pending: boolean;
   onToggle: () => void;
-  last?: boolean;
+  isLast?: boolean;
 }) {
   return (
-    <View style={[styles.toggleRow, last && { borderBottomWidth: 0 }]}>
-      <Text style={styles.toggleLabel}>{label}</Text>
+    <View style={[styles.toggleRow, !isLast && styles.toggleBorder]}>
+      <Text style={{ fontSize: 20 }}>{icon}</Text>
+      <View style={{ flex: 1, paddingRight: spacing.sm }}>
+        <Text style={styles.toggleLabel}>{label}</Text>
+        <Text style={styles.toggleDesc}>{desc}</Text>
+      </View>
       {pending ? (
-        <ActivityIndicator color={colors.primary} />
+        <ActivityIndicator color={colors.primary} size="small" />
       ) : (
         <Switch
           value={value}
           onValueChange={onToggle}
-          trackColor={{ true: colors.primary, false: colors.border }}
+          trackColor={{ false: colors.border, true: colors.primaryLight }}
+          thumbColor={value ? colors.primary : "#f4f3f4"}
         />
       )}
     </View>
@@ -161,46 +205,79 @@ function ToggleRow({
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
-  scroll: { padding: spacing.lg },
-  h1: { fontSize: 22, fontWeight: "700", color: colors.text },
-  sub: { color: colors.textMuted, fontSize: 13, marginTop: spacing.xs, marginBottom: spacing.lg },
+  scroll: { padding: spacing.lg, paddingBottom: spacing.xxxl },
+  banner: {
+    backgroundColor: colors.dangerLight,
+    borderRadius: radius.xl,
+    padding: spacing.lg,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.dangerBorder,
+    marginBottom: spacing.lg,
+    ...shadows.sm,
+  },
+  bannerTitle: { fontSize: 15, fontWeight: "800", color: colors.dangerText },
+  bannerSub: { fontSize: 12, color: colors.textSecondary, marginTop: 2, lineHeight: 16 },
   qrCard: {
     backgroundColor: colors.surface,
-    borderRadius: radius.lg,
+    borderRadius: radius.xxl,
     padding: spacing.xl,
+    alignItems: "center",
     borderWidth: 1,
     borderColor: colors.border,
-    alignItems: "center",
+    marginBottom: spacing.xl,
+    ...shadows.md,
   },
-  code: { marginTop: spacing.md, color: colors.textMuted, fontSize: 13, letterSpacing: 1 },
-  sectionTitle: { marginTop: spacing.xl, color: colors.text, fontWeight: "600", fontSize: 15 },
-  sectionSub: { color: colors.textMuted, fontSize: 12, marginTop: spacing.xs, marginBottom: spacing.md },
-  toggleCard: {
+  qrFrame: {
+    padding: spacing.md,
     backgroundColor: colors.surface,
     borderRadius: radius.lg,
     borderWidth: 1,
+    borderColor: colors.borderLight,
+  },
+  codePill: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: colors.backgroundAlt,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: 6,
+    borderRadius: radius.full,
+    marginTop: spacing.md,
+    gap: 6,
+  },
+  codePillLabel: { fontSize: 11, fontWeight: "700", color: colors.textMuted },
+  codePillValue: { fontSize: 13, fontWeight: "800", color: colors.text, letterSpacing: 0.5 },
+  previewBtn: {
+    marginTop: spacing.md,
+    backgroundColor: colors.primaryLight,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm + 2,
+    borderRadius: radius.md,
+  },
+  previewBtnText: { color: colors.primaryDark, fontSize: 12, fontWeight: "700" },
+  sectionHeaderRow: { marginBottom: spacing.sm },
+  sectionTitle: { fontSize: 16, fontWeight: "800", color: colors.text },
+  sectionSub: { fontSize: 12, color: colors.textMuted, marginTop: 1 },
+  toggleCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.xl,
+    borderWidth: 1,
     borderColor: colors.border,
+    paddingHorizontal: spacing.lg,
+    ...shadows.sm,
   },
   toggleRow: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    paddingVertical: spacing.md + 2,
+    gap: spacing.md,
   },
-  toggleLabel: { color: colors.text, fontSize: 14 },
-  linkBtn: { marginTop: spacing.lg, alignSelf: "center" },
-  linkBtnText: { color: colors.primary, fontWeight: "600", fontSize: 13 },
-  disclaimer: {
-    marginTop: spacing.lg,
-    color: colors.textMuted,
-    fontSize: 11,
-    textAlign: "center",
-    paddingHorizontal: spacing.md,
-  },
-  spinner: { paddingVertical: spacing.lg, alignItems: "center" },
-  error: { color: colors.danger, fontSize: 13 },
+  toggleBorder: { borderBottomWidth: 1, borderBottomColor: colors.borderLight },
+  toggleLabel: { fontSize: 14, fontWeight: "700", color: colors.text },
+  toggleDesc: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
+  spinner: { padding: spacing.xl, alignItems: "center" },
   muted: { color: colors.textMuted, fontSize: 13 },
+  error: { color: colors.danger, fontSize: 13 },
 });

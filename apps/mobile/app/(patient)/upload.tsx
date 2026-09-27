@@ -18,7 +18,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ApiError } from "../../lib/api";
-import { colors, radius, spacing } from "../../lib/theme";
+import { colors, radius, shadows, spacing } from "../../lib/theme";
 import {
   type RecordCategory,
   type UploadInput,
@@ -28,15 +28,15 @@ import {
 
 type PickedFile = Pick<UploadInput, "uri" | "mimeType"> & { name: string; sizeBytes?: number };
 
-const CATEGORIES: Array<{ value: RecordCategory; label: string }> = [
-  { value: "PRESCRIPTION", label: "Prescription" },
-  { value: "LAB_RESULT", label: "Lab result" },
-  { value: "IMAGING", label: "Imaging" },
-  { value: "DISCHARGE_SUMMARY", label: "Discharge" },
-  { value: "CONSULTATION_NOTE", label: "Note" },
-  { value: "VACCINATION", label: "Vaccine" },
-  { value: "INSURANCE", label: "Insurance" },
-  { value: "OTHER", label: "Other" },
+const CATEGORIES: Array<{ value: RecordCategory; label: string; icon: string }> = [
+  { value: "PRESCRIPTION", label: "Prescription", icon: "💊" },
+  { value: "LAB_RESULT", label: "Lab Result", icon: "🧪" },
+  { value: "IMAGING", label: "Imaging & Scans", icon: "🩻" },
+  { value: "DISCHARGE_SUMMARY", label: "Discharge", icon: "📋" },
+  { value: "CONSULTATION_NOTE", label: "Doctor Note", icon: "📝" },
+  { value: "VACCINATION", label: "Vaccine", icon: "💉" },
+  { value: "INSURANCE", label: "Insurance", icon: "🛡️" },
+  { value: "OTHER", label: "Other Record", icon: "📄" },
 ];
 
 export default function UploadScreen() {
@@ -53,10 +53,13 @@ export default function UploadScreen() {
   async function pickFromCamera() {
     const perm = await ImagePicker.requestCameraPermissionsAsync();
     if (!perm.granted) {
-      setError("Camera permission denied.");
+      setError("Camera permission is required to capture documents.");
       return;
     }
-    const res = await ImagePicker.launchCameraAsync({ quality: 0.9, mediaTypes: ImagePicker.MediaTypeOptions.Images });
+    const res = await ImagePicker.launchCameraAsync({
+      quality: 0.9,
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+    });
     handleImagePickerResult(res);
   }
 
@@ -78,11 +81,12 @@ export default function UploadScreen() {
     const asset = res.assets[0]!;
     const mime = (asset.mimeType ?? guessMime(asset.name)) as PickedFile["mimeType"] | undefined;
     if (!mime || !["application/pdf", "image/jpeg", "image/png"].includes(mime)) {
-      setError("Unsupported file type. Use PDF, JPG, or PNG.");
+      setError("Unsupported file type. Please attach a PDF, JPG, or PNG document.");
       return;
     }
     setFile({ uri: asset.uri, mimeType: mime, name: asset.name, sizeBytes: asset.size ?? undefined });
     if (!title) setTitle(stripExtension(asset.name));
+    setError(null);
   }
 
   function handleImagePickerResult(res: ImagePicker.ImagePickerResult) {
@@ -95,17 +99,18 @@ export default function UploadScreen() {
       name: asset.fileName ?? `photo-${Date.now()}.jpg`,
       ...(asset.fileSize !== undefined ? { sizeBytes: asset.fileSize } : {}),
     });
-    if (!title) setTitle("Captured photo");
+    if (!title) setTitle("Medical photo " + new Date().toLocaleDateString());
+    setError(null);
   }
 
   async function onSubmit() {
     setError(null);
     if (!file) {
-      setError("Pick a file first.");
+      setError("Please select or photograph a medical document first.");
       return;
     }
     if (!title.trim()) {
-      setError("Title is required.");
+      setError("Document title is required.");
       return;
     }
     try {
@@ -120,18 +125,15 @@ export default function UploadScreen() {
         },
         setProgress,
       );
-      // Invalidate so Records / Home / Timeline pick up the new row.
       await queryClient.invalidateQueries({ queryKey: ["records"] });
       await queryClient.invalidateQueries({ queryKey: ["timeline"] });
-      // Meds + interactions may also change once extraction completes; refresh
-      // optimistically — it's cheap.
       await queryClient.invalidateQueries({ queryKey: ["medications"] });
       await queryClient.invalidateQueries({ queryKey: ["interactions"] });
 
       Alert.alert(
-        "Uploaded",
-        "Your document is being processed. The AI will populate medications and timeline events automatically.",
-        [{ text: "OK", onPress: () => router.back() }],
+        "Upload Complete",
+        "Your document has been securely encrypted and stored. The AI extraction pipeline is now processing clinical entities.",
+        [{ text: "View Vault", onPress: () => router.back() }],
       );
     } catch (e) {
       const msg = e instanceof ApiError ? e.message : e instanceof Error ? e.message : "Upload failed.";
@@ -145,31 +147,54 @@ export default function UploadScreen() {
 
   return (
     <SafeAreaView style={styles.safe}>
-      <Stack.Screen options={{ title: "Add to vault", headerBackTitle: "Cancel" }} />
+      <Stack.Screen options={{ title: "Upload to Vault", headerBackTitle: "Cancel" }} />
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
           {!file ? (
             <View style={styles.pickerCard}>
-              <Text style={styles.h1}>Add a document</Text>
-              <Text style={styles.sub}>
-                Photograph, scan, or attach a prescription, lab result, or any medical record. The AI extracts the
-                details automatically.
-              </Text>
-              <PickerButton label="Take photo" onPress={pickFromCamera} />
-              <PickerButton label="Choose from photos" onPress={pickFromLibrary} />
-              <PickerButton label="Pick a file (PDF / image)" onPress={pickDocument} />
+              <View style={styles.pickerHeader}>
+                <Text style={{ fontSize: 32 }}>📤</Text>
+                <Text style={styles.h1}>Upload Medical Record</Text>
+                <Text style={styles.sub}>
+                  Photograph or attach prescriptions, lab results, discharge summaries, or imaging scans. The AI
+                  automatically extracts medications and clinical entities.
+                </Text>
+              </View>
+
+              <View style={styles.pickerActions}>
+                <PickerOption
+                  icon="📸"
+                  title="Take Photo with Camera"
+                  desc="Capture physical prescription or lab printout"
+                  onPress={pickFromCamera}
+                />
+                <PickerOption
+                  icon="🖼️"
+                  title="Choose from Photo Library"
+                  desc="Select photo from camera roll"
+                  onPress={pickFromLibrary}
+                />
+                <PickerOption
+                  icon="📄"
+                  title="Pick PDF / Document File"
+                  desc="Upload digital lab results or PDF reports"
+                  onPress={pickDocument}
+                />
+              </View>
             </View>
           ) : (
-            <>
+            <View style={styles.formCard}>
+              {/* Selected File Preview */}
               <View style={styles.previewCard}>
                 {isImage(file.mimeType) ? (
                   <Image source={{ uri: file.uri }} style={styles.previewImage} resizeMode="cover" />
                 ) : (
                   <View style={styles.previewPdf}>
+                    <Text style={{ fontSize: 24 }}>📄</Text>
                     <Text style={styles.previewPdfText}>PDF</Text>
                   </View>
                 )}
-                <View style={{ flex: 1, marginLeft: spacing.md }}>
+                <View style={{ flex: 1 }}>
                   <Text style={styles.fileName} numberOfLines={2}>
                     {file.name}
                   </Text>
@@ -177,72 +202,95 @@ export default function UploadScreen() {
                     {file.mimeType}
                     {file.sizeBytes ? ` · ${formatBytes(file.sizeBytes)}` : ""}
                   </Text>
-                  <Pressable onPress={() => setFile(null)}>
-                    <Text style={styles.changeLink}>Pick a different file</Text>
+                  <Pressable onPress={() => setFile(null)} style={styles.changeLinkBtn}>
+                    <Text style={styles.changeLink}>Change document</Text>
                   </Pressable>
                 </View>
               </View>
 
-              <Text style={styles.label}>Title</Text>
-              <TextInput
-                value={title}
-                onChangeText={setTitle}
-                placeholder="Visit with Dr. Chen — 2026-05-08"
-                placeholderTextColor={colors.textMuted}
-                style={styles.input}
-                editable={!submitting}
-              />
-
-              <Text style={styles.label}>Category</Text>
-              <View style={styles.chips}>
-                {CATEGORIES.map((c) => {
-                  const selected = c.value === category;
-                  return (
-                    <Pressable
-                      key={c.value}
-                      onPress={() => setCategory(c.value)}
-                      disabled={submitting}
-                      style={[styles.chip, selected && styles.chipSelected]}
-                    >
-                      <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{c.label}</Text>
-                    </Pressable>
-                  );
-                })}
+              {/* Title Input */}
+              <View style={{ marginTop: spacing.lg }}>
+                <Text style={styles.label}>Document Title</Text>
+                <TextInput
+                  value={title}
+                  onChangeText={setTitle}
+                  placeholder="e.g. Lab Report - Lipid Panel - Dr. Chen"
+                  placeholderTextColor={colors.textMuted}
+                  style={styles.input}
+                  editable={!submitting}
+                />
               </View>
 
-              <Text style={styles.label}>Notes (optional)</Text>
-              <TextInput
-                value={notes}
-                onChangeText={setNotes}
-                placeholder="Anything to remember about this record."
-                placeholderTextColor={colors.textMuted}
-                style={[styles.input, styles.notes]}
-                multiline
-                numberOfLines={3}
-                editable={!submitting}
-              />
+              {/* Category Selector */}
+              <View style={{ marginTop: spacing.md }}>
+                <Text style={styles.label}>Document Category</Text>
+                <View style={styles.chips}>
+                  {CATEGORIES.map((c) => {
+                    const selected = c.value === category;
+                    return (
+                      <Pressable
+                        key={c.value}
+                        onPress={() => setCategory(c.value)}
+                        style={[styles.chip, selected && styles.chipActive]}
+                      >
+                        <Text style={{ fontSize: 13, marginRight: 4 }}>{c.icon}</Text>
+                        <Text style={[styles.chipText, selected && styles.chipTextActive]}>{c.label}</Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
+
+              {/* Optional Notes */}
+              <View style={{ marginTop: spacing.md }}>
+                <Text style={styles.label}>Doctor or Clinic Notes (Optional)</Text>
+                <TextInput
+                  value={notes}
+                  onChangeText={setNotes}
+                  placeholder="e.g. Routine 6-month checkup, follow-up in 2 weeks"
+                  placeholderTextColor={colors.textMuted}
+                  style={[styles.input, styles.notesInput]}
+                  multiline
+                  numberOfLines={2}
+                  editable={!submitting}
+                />
+              </View>
 
               {error ? <Text style={styles.error}>{error}</Text> : null}
 
+              {/* Progress State */}
               {progress ? (
-                <View style={styles.progressBlock}>
-                  <ActivityIndicator color={colors.primary} />
-                  <Text style={styles.progressText}>{progressLabel(progress)}</Text>
+                <View style={styles.progressCard}>
+                  <ActivityIndicator color={colors.primary} size="small" />
+                  <Text style={styles.progressText}>
+                    {progress.phase === "reading"
+                      ? "Reading file…"
+                      : progress.phase === "hashing"
+                      ? "Computing SHA-256 integrity hash…"
+                      : progress.phase === "presigning"
+                      ? "Authorizing encrypted storage…"
+                      : progress.phase === "uploading"
+                      ? `Uploading file (${progress.pct ?? 0}%)…`
+                      : "Triggering AI FHIR extraction…"}
+                  </Text>
                 </View>
               ) : null}
 
+              {/* Submit Button */}
               <Pressable
                 onPress={onSubmit}
                 disabled={submitting}
                 style={({ pressed }) => [
-                  styles.submit,
-                  pressed && !submitting && { opacity: 0.85 },
+                  styles.submitButton,
                   submitting && { opacity: 0.6 },
+                  pressed && !submitting && { opacity: 0.85 },
                 ]}
               >
-                <Text style={styles.submitText}>{submitting ? "Uploading…" : "Upload"}</Text>
+                <Text style={styles.submitButtonText}>
+                  {submitting ? "Uploading & Extracting…" : "Encrypt & Save to Vault"}
+                </Text>
               </Pressable>
-            </>
+            </View>
           )}
         </ScrollView>
       </KeyboardAvoidingView>
@@ -250,43 +298,45 @@ export default function UploadScreen() {
   );
 }
 
-function PickerButton({ label, onPress }: { label: string; onPress: () => void }) {
+function PickerOption({
+  icon,
+  title,
+  desc,
+  onPress,
+}: {
+  icon: string;
+  title: string;
+  desc: string;
+  onPress: () => void;
+}) {
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.pickerButton, pressed && { opacity: 0.85 }]}>
-      <Text style={styles.pickerButtonText}>{label}</Text>
+    <Pressable onPress={onPress} style={({ pressed }) => [styles.pickerOption, pressed && styles.pickerOptionPressed]}>
+      <View style={styles.pickerOptionIconBox}>
+        <Text style={{ fontSize: 24 }}>{icon}</Text>
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={styles.pickerOptionTitle}>{title}</Text>
+        <Text style={styles.pickerOptionDesc}>{desc}</Text>
+      </View>
+      <Text style={styles.pickerOptionChevron}>›</Text>
     </Pressable>
   );
 }
 
-function progressLabel(p: UploadProgress): string {
-  switch (p.phase) {
-    case "reading":
-      return "Reading file…";
-    case "hashing":
-      return "Verifying integrity…";
-    case "presigning":
-      return "Requesting upload URL…";
-    case "uploading":
-      return `Uploading… ${Math.round(p.pct * 100)}%`;
-    case "confirming":
-      return "Finalizing…";
-  }
+function isImage(m: string): boolean {
+  return m === "image/jpeg" || m === "image/png";
 }
 
-function isImage(mime: string): boolean {
-  return mime === "image/jpeg" || mime === "image/png";
-}
-
-function guessMime(name: string): string {
+function guessMime(name: string): string | undefined {
   const lower = name.toLowerCase();
   if (lower.endsWith(".pdf")) return "application/pdf";
+  if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) return "image/jpeg";
   if (lower.endsWith(".png")) return "image/png";
-  return "image/jpeg";
+  return undefined;
 }
 
 function stripExtension(name: string): string {
-  const dot = name.lastIndexOf(".");
-  return dot > 0 ? name.slice(0, dot) : name;
+  return name.replace(/\.[a-z0-9]+$/i, "");
 }
 
 function formatBytes(n: number): string {
@@ -297,90 +347,122 @@ function formatBytes(n: number): string {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
-  scroll: { padding: spacing.lg, paddingBottom: spacing.xxl, gap: spacing.md },
-  h1: { fontSize: 22, fontWeight: "700", color: colors.text },
-  sub: { color: colors.textMuted, fontSize: 13, marginTop: spacing.xs, marginBottom: spacing.lg },
+  scroll: { padding: spacing.lg, paddingBottom: spacing.xxxl },
   pickerCard: {
     backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: spacing.lg,
+    borderRadius: radius.xxl,
+    padding: spacing.xl,
     borderWidth: 1,
     borderColor: colors.border,
-    gap: spacing.sm,
+    ...shadows.md,
   },
-  pickerButton: {
-    backgroundColor: colors.background,
-    borderRadius: radius.md,
-    paddingVertical: spacing.md + 2,
-    paddingHorizontal: spacing.lg,
+  pickerHeader: { alignItems: "center", marginBottom: spacing.xl },
+  h1: { fontSize: 22, fontWeight: "800", color: colors.text, marginTop: spacing.xs },
+  sub: { fontSize: 13, color: colors.textMuted, textAlign: "center", marginTop: 4, lineHeight: 18 },
+  pickerActions: { gap: spacing.sm },
+  pickerOption: {
+    flexDirection: "row",
     alignItems: "center",
+    backgroundColor: colors.background,
+    borderRadius: radius.xl,
+    padding: spacing.md + 2,
     borderWidth: 1,
     borderColor: colors.border,
+    gap: spacing.md,
   },
-  pickerButtonText: { color: colors.text, fontWeight: "600", fontSize: 15 },
+  pickerOptionPressed: { backgroundColor: colors.backgroundAlt },
+  pickerOptionIconBox: {
+    width: 48,
+    height: 48,
+    borderRadius: radius.lg,
+    backgroundColor: colors.surface,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  pickerOptionTitle: { fontSize: 15, fontWeight: "700", color: colors.text },
+  pickerOptionDesc: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
+  pickerOptionChevron: { fontSize: 22, color: colors.textMuted },
+  formCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.xxl,
+    padding: spacing.xl,
+    borderWidth: 1,
+    borderColor: colors.border,
+    ...shadows.md,
+  },
   previewCard: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
+    backgroundColor: colors.background,
+    borderRadius: radius.xl,
     padding: spacing.md,
     borderWidth: 1,
     borderColor: colors.border,
+    gap: spacing.md,
   },
-  previewImage: { width: 88, height: 88, borderRadius: radius.md, backgroundColor: colors.background },
+  previewImage: { width: 64, height: 64, borderRadius: radius.lg },
   previewPdf: {
-    width: 88,
-    height: 88,
-    borderRadius: radius.md,
-    backgroundColor: "#E1ECF1",
-    justifyContent: "center",
+    width: 64,
+    height: 64,
+    borderRadius: radius.lg,
+    backgroundColor: colors.dangerLight,
     alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: colors.dangerBorder,
   },
-  previewPdfText: { color: colors.primary, fontWeight: "700", letterSpacing: 1 },
-  fileName: { color: colors.text, fontWeight: "600", fontSize: 14 },
-  fileMeta: { color: colors.textMuted, fontSize: 12, marginTop: 2 },
-  changeLink: { color: colors.primary, fontSize: 12, marginTop: spacing.sm, fontWeight: "600" },
-  label: { color: colors.text, fontSize: 13, fontWeight: "600", marginTop: spacing.md },
+  previewPdfText: { fontSize: 11, fontWeight: "800", color: colors.dangerText, marginTop: 2 },
+  fileName: { fontSize: 14, fontWeight: "700", color: colors.text },
+  fileMeta: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
+  changeLinkBtn: { marginTop: 4 },
+  changeLink: { color: colors.primary, fontSize: 12, fontWeight: "700" },
+  label: { fontSize: 13, fontWeight: "700", color: colors.text, marginBottom: 4 },
   input: {
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: radius.md,
+    borderRadius: radius.lg,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
     fontSize: 15,
     color: colors.text,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.background,
   },
-  notes: { minHeight: 80, textAlignVertical: "top" },
-  chips: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
+  notesInput: { minHeight: 56, textAlignVertical: "top" },
+  chips: { flexDirection: "row", flexWrap: "wrap", gap: spacing.xs },
   chip: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: colors.background,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    borderRadius: 999,
-    backgroundColor: colors.surface,
+    borderRadius: radius.full,
     borderWidth: 1,
     borderColor: colors.border,
   },
-  chipSelected: { backgroundColor: colors.primary, borderColor: colors.primary },
-  chipText: { color: colors.text, fontSize: 13, fontWeight: "500" },
-  chipTextSelected: { color: colors.primaryText },
-  error: { color: colors.danger, fontSize: 13, marginTop: spacing.md },
-  progressBlock: {
+  chipActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  chipText: { fontSize: 12, fontWeight: "600", color: colors.textMuted },
+  chipTextActive: { color: colors.primaryText, fontWeight: "700" },
+  progressCard: {
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.md,
-    marginTop: spacing.md,
+    backgroundColor: colors.primaryLight,
     padding: spacing.md,
-    backgroundColor: "#E1ECF1",
-    borderRadius: radius.md,
+    borderRadius: radius.lg,
+    marginTop: spacing.md,
+    gap: spacing.sm,
   },
-  progressText: { color: colors.text, fontSize: 13 },
-  submit: {
-    marginTop: spacing.lg,
+  progressText: { fontSize: 13, color: colors.primaryDark, fontWeight: "600" },
+  submitButton: {
+    marginTop: spacing.xl,
     backgroundColor: colors.primary,
-    borderRadius: radius.md,
+    borderRadius: radius.lg,
     paddingVertical: spacing.md + 2,
     alignItems: "center",
+    ...shadows.sm,
   },
-  submitText: { color: colors.primaryText, fontWeight: "600", fontSize: 16 },
+  submitButtonText: { color: colors.primaryText, fontWeight: "800", fontSize: 15 },
+  error: { color: colors.danger, fontSize: 13, marginTop: spacing.md, fontWeight: "600" },
 });

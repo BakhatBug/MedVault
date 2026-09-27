@@ -1,29 +1,53 @@
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
+import { useState } from "react";
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useCaregiverPatientRecords } from "../../../lib/queries";
-import { colors, radius, spacing } from "../../../lib/theme";
+import { RecordDetailModal } from "../../../components/RecordDetailModal";
+import { useCaregiverPatientRecords, useRecordDetail, useRecordViewUrl } from "../../../lib/queries";
+import { colors, radius, shadows, spacing } from "../../../lib/theme";
 
-const STATUS_LABEL: Record<string, string> = {
-  PENDING: "Processing…",
-  PROCESSING: "Processing…",
-  COMPLETED: "AI extracted",
-  FAILED_RETRYABLE: "Retrying AI",
-  FAILED_PERMANENT: "AI unavailable",
-  UNAVAILABLE: "AI unavailable",
+const CATEGORY_ICONS: Record<string, string> = {
+  PRESCRIPTION: "💊",
+  LAB_RESULT: "🧪",
+  IMAGING: "🩻",
+  DISCHARGE_SUMMARY: "📋",
+  CONSULTATION_NOTE: "📝",
+  VACCINATION: "💉",
+  INSURANCE: "🛡️",
+  OTHER: "📄",
 };
 
-// Caregiver's view of a linked patient: their records, plus the ability to
-// upload a document on the patient's behalf.
+const STATUS_PILL: Record<string, { label: string; bg: string; fg: string }> = {
+  COMPLETED: { label: "AI Extracted", bg: "#DCFCE7", fg: "#15803D" },
+  PROCESSING: { label: "Processing…", bg: "#FEF3C7", fg: "#B45309" },
+  PENDING: { label: "Queued", bg: "#F1F5F9", fg: "#64748B" },
+  FAILED_RETRYABLE: { label: "Retrying", bg: "#FEE2E2", fg: "#B91C1C" },
+  FAILED_PERMANENT: { label: "Failed", bg: "#FEE2E2", fg: "#B91C1C" },
+  UNAVAILABLE: { label: "Unavailable", bg: "#F1F5F9", fg: "#64748B" },
+};
+
 export default function CaregiverPatientScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ code?: string }>();
   const code = typeof params.code === "string" ? params.code.toUpperCase() : null;
   const records = useCaregiverPatientRecords(code);
+  const [selectedRecordId, setSelectedRecordId] = useState<string | null>(null);
+
+  const recordDetail = useRecordDetail(selectedRecordId);
+  const recordViewUrl = useRecordViewUrl(selectedRecordId);
+
+  const items = records.data?.items ?? [];
 
   return (
     <SafeAreaView style={styles.safe}>
-      <Stack.Screen options={{ title: code ?? "Patient", headerBackTitle: "Patients" }} />
+      <Stack.Screen
+        options={{
+          title: code ? `Vault: ${code}` : "Patient Vault",
+          headerBackTitle: "Patients",
+          headerStyle: { backgroundColor: colors.surface },
+          headerTitleStyle: { color: colors.text, fontWeight: "800", fontSize: 16 },
+        }}
+      />
       <ScrollView
         contentContainerStyle={styles.scroll}
         refreshControl={
@@ -34,41 +58,92 @@ export default function CaregiverPatientScreen() {
           />
         }
       >
-        <View style={styles.headerRow}>
-          <Text style={styles.title}>Records</Text>
+        {/* Header Hero Banner */}
+        <View style={styles.heroCard}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.heroTitle}>Patient Records</Text>
+            <Text style={styles.heroSub}>
+              Authorized proxy access to diagnostic files & clinical extractions for {code}.
+            </Text>
+          </View>
           <Pressable
             onPress={() =>
               code && router.push({ pathname: "/(caregiver)/patient/[code]/upload", params: { code } })
             }
-            style={({ pressed }) => [styles.addButton, pressed && { opacity: 0.85 }]}
+            style={({ pressed }) => [styles.uploadBtn, pressed && { opacity: 0.88 }]}
           >
-            <Text style={styles.addButtonText}>+ Add</Text>
+            <Text style={styles.uploadBtnText}>+ Upload</Text>
           </Pressable>
         </View>
-        <Text style={styles.subtitle}>Documents in this patient&apos;s vault. You can upload on their behalf.</Text>
+
+        {/* Records List */}
+        <View style={styles.listHeader}>
+          <Text style={styles.listHeaderTitle}>DOCUMENTS ({items.length})</Text>
+        </View>
 
         {records.isLoading ? (
-          <Text style={styles.muted}>Loading…</Text>
+          <View style={styles.loadingBox}>
+            <Text style={styles.muted}>Loading patient records…</Text>
+          </View>
         ) : records.error ? (
-          <Text style={styles.error}>{(records.error as Error).message}</Text>
-        ) : (records.data?.items.length ?? 0) === 0 ? (
-          <Text style={styles.muted}>No records yet. Tap &quot;+ Add&quot; to upload the first one.</Text>
+          <View style={styles.errorBox}>
+            <Text style={styles.errorText}>{(records.error as Error).message}</Text>
+          </View>
+        ) : items.length === 0 ? (
+          <View style={styles.emptyCard}>
+            <Text style={styles.emptyEmoji}>📁</Text>
+            <Text style={styles.emptyTitle}>No Records Found</Text>
+            <Text style={styles.emptySub}>
+              No health documents uploaded yet for this patient. Tap &quot;+ Upload&quot; to add prescriptions, labs, or
+              imaging.
+            </Text>
+          </View>
         ) : (
-          records.data!.items.map((r) => (
-            <View key={r.id} style={styles.row}>
-              <View style={styles.rowHeader}>
-                <Text style={styles.rowTitle} numberOfLines={2}>
-                  {r.title}
-                </Text>
-                <Text style={styles.badge}>{STATUS_LABEL[r.aiStatus] ?? r.aiStatus}</Text>
-              </View>
-              <Text style={styles.rowSub}>
-                {r.category.replace(/_/g, " ").toLowerCase()} · {new Date(r.uploadedAt).toLocaleDateString()}
-              </Text>
-            </View>
-          ))
+          items.map((r) => {
+            const icon = CATEGORY_ICONS[r.category] ?? "📄";
+            const status = STATUS_PILL[r.aiStatus] ?? STATUS_PILL.PENDING ?? { label: r.aiStatus, bg: "#F1F5F9", fg: "#64748B" };
+
+            return (
+              <Pressable
+                key={r.id}
+                onPress={() => setSelectedRecordId(r.id)}
+                style={({ pressed }) => [styles.recordCard, pressed && { opacity: 0.92 }]}
+              >
+                <View style={styles.recordIconBox}>
+                  <Text style={styles.recordIcon}>{icon}</Text>
+                </View>
+
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.recordTitle} numberOfLines={2}>
+                    {r.title}
+                  </Text>
+                  <Text style={styles.recordMeta}>
+                    {r.category.replace(/_/g, " ").toLowerCase()} · {new Date(r.uploadedAt).toLocaleDateString()}
+                  </Text>
+                </View>
+
+                <View style={[styles.statusPill, { backgroundColor: status.bg }]}>
+                  <Text style={[styles.statusPillText, { color: status.fg }]}>{status.label}</Text>
+                </View>
+              </Pressable>
+            );
+          })
         )}
+
+        <View style={{ height: spacing.xxl }} />
       </ScrollView>
+
+      {/* Record Inspection Modal */}
+      {selectedRecordId ? (
+        <RecordDetailModal
+          record={recordDetail.data ?? null}
+          loading={recordDetail.isLoading}
+          viewUrl={recordViewUrl.data?.url ?? null}
+          loadingViewUrl={recordViewUrl.isLoading}
+          visible={!!selectedRecordId}
+          onClose={() => setSelectedRecordId(null)}
+        />
+      ) : null}
     </SafeAreaView>
   );
 }
@@ -76,36 +151,140 @@ export default function CaregiverPatientScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
   scroll: { padding: spacing.lg, paddingBottom: spacing.xxl },
-  headerRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  title: { fontSize: 24, fontWeight: "700", color: colors.text },
-  addButton: {
-    backgroundColor: colors.primary,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm + 2,
-    borderRadius: radius.md,
-  },
-  addButtonText: { color: colors.primaryText, fontWeight: "600", fontSize: 14 },
-  subtitle: { color: colors.textMuted, marginTop: spacing.xs, marginBottom: spacing.lg, fontSize: 13 },
-  row: {
+  heroCard: {
+    flexDirection: "row",
+    alignItems: "center",
     backgroundColor: colors.surface,
-    borderRadius: radius.md,
-    padding: spacing.md,
-    marginBottom: spacing.sm,
+    borderRadius: radius.xl,
+    padding: spacing.lg,
     borderWidth: 1,
     borderColor: colors.border,
+    marginBottom: spacing.xl,
+    ...shadows.sm,
+    gap: spacing.md,
   },
-  rowHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", gap: spacing.sm },
-  rowTitle: { color: colors.text, fontWeight: "600", fontSize: 14, flex: 1 },
-  rowSub: { color: colors.textMuted, fontSize: 12, marginTop: spacing.xs },
-  badge: {
+  heroTitle: {
+    fontSize: 20,
+    fontWeight: "800",
+    color: colors.text,
+    letterSpacing: -0.3,
+  },
+  heroSub: {
+    color: colors.textMuted,
+    fontSize: 12,
+    marginTop: 2,
+    lineHeight: 16,
+  },
+  uploadBtn: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: spacing.md + 2,
+    paddingVertical: spacing.sm + 2,
+    borderRadius: radius.lg,
+    ...shadows.sm,
+  },
+  uploadBtnText: {
+    color: colors.primaryText,
+    fontWeight: "700",
+    fontSize: 13,
+  },
+  listHeader: {
+    marginBottom: spacing.sm,
+    marginLeft: 2,
+  },
+  listHeaderTitle: {
     fontSize: 11,
-    fontWeight: "600",
-    color: colors.primary,
-    backgroundColor: "#E1ECF1",
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    borderRadius: radius.sm,
+    fontWeight: "700",
+    color: colors.textMuted,
+    letterSpacing: 0.8,
   },
-  muted: { color: colors.textMuted, fontSize: 13 },
-  error: { color: colors.danger, fontSize: 13 },
+  recordCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: colors.surface,
+    borderRadius: radius.xl,
+    padding: spacing.md + 2,
+    marginBottom: spacing.sm + 2,
+    borderWidth: 1,
+    borderColor: colors.border,
+    ...shadows.sm,
+    gap: spacing.md,
+  },
+  recordIconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: radius.lg,
+    backgroundColor: colors.surfaceSecondary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  recordIcon: {
+    fontSize: 22,
+  },
+  recordTitle: {
+    color: colors.text,
+    fontWeight: "700",
+    fontSize: 14,
+    lineHeight: 18,
+  },
+  recordMeta: {
+    color: colors.textMuted,
+    fontSize: 12,
+    marginTop: 2,
+    textTransform: "capitalize",
+  },
+  statusPill: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 3,
+    borderRadius: radius.full,
+  },
+  statusPillText: {
+    fontSize: 10,
+    fontWeight: "700",
+  },
+  loadingBox: {
+    padding: spacing.xl,
+    alignItems: "center",
+  },
+  errorBox: {
+    backgroundColor: colors.dangerLight,
+    padding: spacing.md,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: "#FECACA",
+  },
+  errorText: {
+    color: colors.danger,
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  emptyCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.xl,
+    padding: spacing.xxl,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: colors.border,
+    ...shadows.sm,
+  },
+  emptyEmoji: {
+    fontSize: 40,
+    marginBottom: spacing.md,
+  },
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: colors.text,
+  },
+  emptySub: {
+    fontSize: 13,
+    color: colors.textMuted,
+    textAlign: "center",
+    marginTop: spacing.xs,
+    lineHeight: 18,
+  },
+  muted: {
+    color: colors.textMuted,
+    fontSize: 14,
+  },
 });
+

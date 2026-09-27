@@ -20,27 +20,22 @@ import {
   useIncomingAccess,
   useRevokeIncomingAccess,
 } from "../../lib/queries";
-import { colors, radius, spacing } from "../../lib/theme";
-
-// Patient-facing access management. Three flavors of row:
-//  - REQUESTED  → Approve (chip pick) / Deny
-//  - APPROVED   → Revoke
-//  - DENIED/EXPIRED/REVOKED → read-only history
+import { colors, radius, shadows, spacing } from "../../lib/theme";
 
 const DURATION_LABEL: Record<AccessDurationChoice, string> = {
-  HOURS_24: "24 hours",
-  DAYS_7: "7 days",
-  DAYS_30: "30 days",
-  PERMANENT: "Permanent",
+  HOURS_24: "24 Hours",
+  DAYS_7: "7 Days",
+  DAYS_30: "30 Days",
+  PERMANENT: "Permanent Access",
 };
 const DURATIONS: AccessDurationChoice[] = ["HOURS_24", "DAYS_7", "DAYS_30", "PERMANENT"];
 
-const STATUS_STYLE: Record<IncomingAccess["status"], { bg: string; fg: string; label: string }> = {
-  REQUESTED: { bg: "#FFF1DA", fg: "#A85800", label: "PENDING" },
-  APPROVED: { bg: "#E7F1E5", fg: "#1B7F4F", label: "ACTIVE" },
-  DENIED: { bg: "#FBEAEA", fg: "#B23A48", label: "DENIED" },
-  EXPIRED: { bg: "#E1E8ED", fg: "#5B6C7A", label: "EXPIRED" },
-  REVOKED: { bg: "#E1E8ED", fg: "#5B6C7A", label: "REVOKED" },
+const STATUS_CONFIG: Record<IncomingAccess["status"], { bg: string; fg: string; label: string }> = {
+  REQUESTED: { bg: colors.warningLight, fg: colors.warningText, label: "PENDING APPROVAL" },
+  APPROVED: { bg: colors.successLight, fg: colors.successText, label: "ACTIVE GRANT" },
+  DENIED: { bg: colors.dangerLight, fg: colors.dangerText, label: "DENIED" },
+  EXPIRED: { bg: colors.backgroundAlt, fg: colors.textMuted, label: "EXPIRED" },
+  REVOKED: { bg: colors.backgroundAlt, fg: colors.textMuted, label: "REVOKED" },
 };
 
 export default function AccessScreen() {
@@ -49,24 +44,23 @@ export default function AccessScreen() {
   const deny = useDenyAccess();
   const revoke = useRevokeIncomingAccess();
 
-  // Tracks which row has expanded duration chips. Only one open at a time.
-  const [pickingFor, setPickingFor] = useState<string | null>(null);
+  const [selectedDuration, setSelectedDuration] = useState<Record<string, AccessDurationChoice>>({});
   const [busyId, setBusyId] = useState<string | null>(null);
 
-  async function onApprove(id: string, duration: AccessDurationChoice) {
+  async function onApprove(id: string) {
+    const dur = selectedDuration[id] ?? "HOURS_24";
     setBusyId(id);
     try {
-      await approve.mutateAsync({ id, duration });
-      setPickingFor(null);
+      await approve.mutateAsync({ id, duration: dur });
     } catch (e) {
-      Alert.alert("Could not approve", e instanceof ApiError ? e.message : "Try again.");
+      Alert.alert("Approval Failed", e instanceof ApiError ? e.message : "Try again.");
     } finally {
       setBusyId(null);
     }
   }
 
   function onDeny(id: string) {
-    Alert.alert("Deny request?", "The doctor will be notified and cannot retry without your invitation.", [
+    Alert.alert("Deny Request", "The doctor will not be granted access to your medical records.", [
       { text: "Cancel", style: "cancel" },
       {
         text: "Deny",
@@ -76,7 +70,7 @@ export default function AccessScreen() {
           try {
             await deny.mutateAsync(id);
           } catch (e) {
-            Alert.alert("Could not deny", e instanceof ApiError ? e.message : "Try again.");
+            Alert.alert("Denial Failed", e instanceof ApiError ? e.message : "Try again.");
           } finally {
             setBusyId(null);
           }
@@ -86,17 +80,17 @@ export default function AccessScreen() {
   }
 
   function onRevoke(id: string) {
-    Alert.alert("Revoke access?", "The doctor will lose access immediately.", [
+    Alert.alert("Revoke Doctor Access", "The doctor will immediately lose access to your vault records.", [
       { text: "Cancel", style: "cancel" },
       {
-        text: "Revoke",
+        text: "Revoke Access",
         style: "destructive",
         onPress: async () => {
           setBusyId(id);
           try {
             await revoke.mutateAsync(id);
           } catch (e) {
-            Alert.alert("Could not revoke", e instanceof ApiError ? e.message : "Try again.");
+            Alert.alert("Revoke Failed", e instanceof ApiError ? e.message : "Try again.");
           } finally {
             setBusyId(null);
           }
@@ -108,11 +102,11 @@ export default function AccessScreen() {
   const items = incoming.data?.items ?? [];
   const pending = items.filter((i) => i.status === "REQUESTED");
   const active = items.filter((i) => i.status === "APPROVED");
-  const history = items.filter((i) => !["REQUESTED", "APPROVED"].includes(i.status));
+  const history = items.filter((i) => ["DENIED", "EXPIRED", "REVOKED"].includes(i.status));
 
   return (
-    <SafeAreaView style={styles.safe} edges={["bottom"]}>
-      <Stack.Screen options={{ title: "Doctor access" }} />
+    <SafeAreaView style={styles.safe}>
+      <Stack.Screen options={{ title: "Doctor Access Permissions", headerBackTitle: "Back" }} />
       <ScrollView
         contentContainerStyle={styles.scroll}
         refreshControl={
@@ -123,111 +117,147 @@ export default function AccessScreen() {
           />
         }
       >
+        {/* Privacy Banner */}
+        <View style={styles.privacyCard}>
+          <Text style={{ fontSize: 24 }}>🔒</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.privacyTitle}>Zero-Trust Privacy Control</Text>
+            <Text style={styles.privacySub}>
+              Only physicians you explicitly approve can view your vault records. You can revoke access at any moment.
+            </Text>
+          </View>
+        </View>
+
+        {/* Pending Requests */}
         {pending.length > 0 ? (
-          <>
-            <Text style={styles.sectionTitle}>Pending requests</Text>
-            {pending.map((p) => (
-              <View key={p.id} style={styles.card}>
-                <Row item={p} />
-                {p.requestNote ? <Text style={styles.note}>“{p.requestNote}”</Text> : null}
-                {pickingFor === p.id ? (
-                  <View style={styles.chips}>
+          <View style={{ marginTop: spacing.lg }}>
+            <Text style={styles.sectionTitle}>Pending Requests ({pending.length})</Text>
+            {pending.map((p) => {
+              const currentDur = selectedDuration[p.id] ?? "HOURS_24";
+              const isBusy = busyId === p.id;
+              const docName = p.doctor.doctorProfile?.fullName || "Licensed Physician";
+
+              return (
+                <View key={p.id} style={styles.requestCard}>
+                  <View style={styles.docHeader}>
+                    <View style={styles.docAvatar}>
+                      <Text style={{ fontSize: 18 }}>👨‍⚕️</Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.docName}>{docName}</Text>
+                      {p.doctor.doctorProfile?.specialty ? (
+                        <Text style={styles.docSpecialty}>{p.doctor.doctorProfile.specialty}</Text>
+                      ) : null}
+                    </View>
+                    <View style={styles.pendingBadge}>
+                      <Text style={styles.pendingBadgeText}>Pending</Text>
+                    </View>
+                  </View>
+
+                  {p.requestNote ? (
+                    <View style={styles.noteBox}>
+                      <Text style={styles.noteLabel}>Doctor&apos;s reason:</Text>
+                      <Text style={styles.noteText}>&quot;{p.requestNote}&quot;</Text>
+                    </View>
+                  ) : null}
+
+                  {/* Duration Selector */}
+                  <Text style={styles.durLabel}>Grant Access Duration:</Text>
+                  <View style={styles.durationRow}>
                     {DURATIONS.map((d) => (
                       <Pressable
                         key={d}
-                        onPress={() => void onApprove(p.id, d)}
-                        disabled={busyId === p.id}
-                        style={({ pressed }) => [
-                          styles.chip,
-                          pressed && busyId !== p.id && { opacity: 0.85 },
-                        ]}
+                        onPress={() => setSelectedDuration((prev) => ({ ...prev, [p.id]: d }))}
+                        style={[styles.durChip, currentDur === d && styles.durChipActive]}
                       >
-                        <Text style={styles.chipText}>{DURATION_LABEL[d]}</Text>
+                        <Text style={[styles.durChipText, currentDur === d && styles.durChipTextActive]}>
+                          {DURATION_LABEL[d]}
+                        </Text>
                       </Pressable>
                     ))}
                   </View>
-                ) : null}
-                <View style={styles.buttonRow}>
-                  {pickingFor === p.id ? (
+
+                  {/* Action Buttons */}
+                  <View style={styles.actionRow}>
                     <Pressable
-                      onPress={() => setPickingFor(null)}
-                      style={({ pressed }) => [styles.ghostButton, pressed && { opacity: 0.85 }]}
+                      onPress={() => onApprove(p.id)}
+                      disabled={isBusy}
+                      style={({ pressed }) => [styles.approveBtn, pressed && { opacity: 0.85 }]}
                     >
-                      <Text style={styles.ghostText}>Cancel</Text>
+                      {isBusy ? (
+                        <ActivityIndicator color={colors.primaryText} size="small" />
+                      ) : (
+                        <Text style={styles.approveBtnText}>Approve Access</Text>
+                      )}
                     </Pressable>
-                  ) : (
-                    <>
-                      <Pressable
-                        onPress={() => onDeny(p.id)}
-                        disabled={busyId === p.id}
-                        style={({ pressed }) => [styles.denyButton, pressed && { opacity: 0.85 }]}
-                      >
-                        <Text style={styles.denyText}>Deny</Text>
-                      </Pressable>
-                      <Pressable
-                        onPress={() => setPickingFor(p.id)}
-                        disabled={busyId === p.id}
-                        style={({ pressed }) => [styles.approveButton, pressed && { opacity: 0.85 }]}
-                      >
-                        {busyId === p.id ? (
-                          <ActivityIndicator color={colors.primaryText} />
-                        ) : (
-                          <Text style={styles.approveText}>Approve</Text>
-                        )}
-                      </Pressable>
-                    </>
-                  )}
+                    <Pressable
+                      onPress={() => onDeny(p.id)}
+                      disabled={isBusy}
+                      style={({ pressed }) => [styles.denyBtn, pressed && { opacity: 0.85 }]}
+                    >
+                      <Text style={styles.denyBtnText}>Deny</Text>
+                    </Pressable>
+                  </View>
                 </View>
-              </View>
-            ))}
-          </>
+              );
+            })}
+          </View>
         ) : null}
 
-        {active.length > 0 ? (
-          <>
-            <Text style={styles.sectionTitle}>Active access</Text>
-            {active.map((a) => (
-              <View key={a.id} style={styles.card}>
-                <Row item={a} />
-                <Text style={styles.meta}>
-                  Granted {formatRelative(a.approvedAt)}
-                  {a.expiresAt ? ` · expires ${formatRelative(a.expiresAt)}` : " · permanent"}
-                </Text>
-                <View style={styles.buttonRow}>
-                  <Pressable
-                    onPress={() => onRevoke(a.id)}
-                    disabled={busyId === a.id}
-                    style={({ pressed }) => [styles.denyButton, pressed && { opacity: 0.85 }]}
-                  >
-                    {busyId === a.id ? (
-                      <ActivityIndicator color={colors.danger} />
-                    ) : (
-                      <Text style={styles.denyText}>Revoke</Text>
-                    )}
-                  </Pressable>
-                </View>
-              </View>
-            ))}
-          </>
-        ) : null}
+        {/* Active Access Grants */}
+        <View style={{ marginTop: spacing.xl }}>
+          <Text style={styles.sectionTitle}>Active Doctor Access ({active.length})</Text>
+          {active.length === 0 ? (
+            <Text style={styles.muted}>No doctors currently have access to your vault.</Text>
+          ) : (
+            active.map((g) => {
+              const docName = g.doctor.doctorProfile?.fullName || "Licensed Physician";
+              const isBusy = busyId === g.id;
 
+              return (
+                <View key={g.id} style={styles.activeCard}>
+                  <View style={styles.activeHeader}>
+                    <View style={styles.docAvatarActive}>
+                      <Text style={{ fontSize: 18 }}>👨‍⚕️</Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.docName}>{docName}</Text>
+                      <Text style={styles.activeMeta}>
+                        {g.expiresAt ? `Expires: ${formatDate(g.expiresAt)}` : "Permanent clinical access"}
+                      </Text>
+                    </View>
+                    <Pressable
+                      onPress={() => onRevoke(g.id)}
+                      disabled={isBusy}
+                      style={({ pressed }) => [styles.revokeBtn, pressed && { opacity: 0.8 }]}
+                    >
+                      <Text style={styles.revokeBtnText}>{isBusy ? "…" : "Revoke"}</Text>
+                    </Pressable>
+                  </View>
+                </View>
+              );
+            })
+          )}
+        </View>
+
+        {/* History Log */}
         {history.length > 0 ? (
-          <>
-            <Text style={styles.sectionTitle}>History</Text>
-            {history.map((h) => (
-              <View key={h.id} style={[styles.card, { opacity: 0.7 }]}>
-                <Row item={h} />
-              </View>
-            ))}
-          </>
-        ) : null}
-
-        {items.length === 0 ? (
-          <View style={styles.empty}>
-            <Text style={styles.emptyText}>No doctor access requests yet.</Text>
-            <Text style={styles.emptyHint}>
-              When a verified doctor scans your Patient ID, you&apos;ll be asked here whether to grant access.
-            </Text>
+          <View style={{ marginTop: spacing.xxl }}>
+            <Text style={styles.sectionTitle}>Past Permissions History</Text>
+            {history.map((h) => {
+              const statusCfg = STATUS_CONFIG[h.status] ?? STATUS_CONFIG.EXPIRED;
+              return (
+                <View key={h.id} style={styles.historyRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.historyDoc}>{h.doctor.doctorProfile?.fullName || "Doctor"}</Text>
+                    <Text style={styles.historyDate}>{new Date(h.createdAt).toLocaleDateString()}</Text>
+                  </View>
+                  <View style={[styles.historyBadge, { backgroundColor: statusCfg.bg }]}>
+                    <Text style={[styles.historyBadgeText, { color: statusCfg.fg }]}>{statusCfg.label}</Text>
+                  </View>
+                </View>
+              );
+            })}
           </View>
         ) : null}
       </ScrollView>
@@ -235,110 +265,140 @@ export default function AccessScreen() {
   );
 }
 
-function Row({ item }: { item: IncomingAccess }) {
-  const palette = STATUS_STYLE[item.status];
-  const name = item.doctor.doctorProfile?.fullName ?? "Unknown doctor";
-  const specialty = item.doctor.doctorProfile?.specialty;
-  return (
-    <View style={styles.row}>
-      <View style={{ flex: 1 }}>
-        <Text style={styles.doctorName}>Dr. {name}</Text>
-        {specialty ? <Text style={styles.subtle}>{specialty}</Text> : null}
-        <Text style={styles.subtle}>Requested {formatRelative(item.createdAt)}</Text>
-      </View>
-      <View style={[styles.pill, { backgroundColor: palette.bg }]}>
-        <Text style={[styles.pillText, { color: palette.fg }]}>{palette.label}</Text>
-      </View>
-    </View>
-  );
-}
-
-function formatRelative(iso: string | null): string {
-  if (!iso) return "—";
-  const t = new Date(iso).getTime();
-  if (!Number.isFinite(t)) return iso;
-  const diff = t - Date.now();
-  const abs = Math.abs(diff);
-  const future = diff > 0;
-  if (abs < 60_000) return future ? "in a moment" : "just now";
-  const mins = Math.round(abs / 60_000);
-  if (mins < 60) return future ? `in ${mins}m` : `${mins}m ago`;
-  const hrs = Math.round(abs / 3_600_000);
-  if (hrs < 48) return future ? `in ${hrs}h` : `${hrs}h ago`;
-  const days = Math.round(abs / 86_400_000);
-  return future ? `in ${days}d` : `${days}d ago`;
+function formatDate(iso: string): string {
+  const d = new Date(iso);
+  if (!Number.isFinite(d.getTime())) return iso;
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 }
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
-  scroll: { padding: spacing.lg, paddingBottom: spacing.xxl },
-  sectionTitle: {
-    color: colors.textMuted,
-    fontWeight: "700",
-    fontSize: 12,
-    textTransform: "uppercase",
-    letterSpacing: 0.6,
-    marginBottom: spacing.sm,
-    marginTop: spacing.md,
+  scroll: { padding: spacing.lg, paddingBottom: spacing.xxxl },
+  privacyCard: {
+    backgroundColor: colors.primaryLight,
+    borderRadius: radius.xl,
+    padding: spacing.lg,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.primaryMuted,
+    ...shadows.sm,
   },
-  card: {
+  privacyTitle: { fontSize: 15, fontWeight: "800", color: colors.primaryDark },
+  privacySub: { fontSize: 12, color: colors.textSecondary, marginTop: 2, lineHeight: 16 },
+  sectionTitle: { fontSize: 16, fontWeight: "800", color: colors.text, marginBottom: spacing.sm },
+  requestCard: {
     backgroundColor: colors.surface,
-    borderRadius: radius.lg,
+    borderRadius: radius.xl,
     padding: spacing.lg,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.warningBorder,
     marginBottom: spacing.md,
+    ...shadows.sm,
   },
-  row: { flexDirection: "row", alignItems: "flex-start", gap: spacing.sm },
-  doctorName: { color: colors.text, fontSize: 16, fontWeight: "600" },
-  subtle: { color: colors.textMuted, fontSize: 12, marginTop: 2 },
-  pill: { paddingHorizontal: spacing.sm, paddingVertical: 4, borderRadius: radius.sm },
-  pillText: { fontSize: 10, fontWeight: "700", letterSpacing: 0.5 },
-  note: {
-    marginTop: spacing.sm,
-    color: colors.text,
-    fontStyle: "italic",
-    fontSize: 13,
-    backgroundColor: colors.background,
-    padding: spacing.sm,
-    borderRadius: radius.sm,
+  docHeader: { flexDirection: "row", alignItems: "center", gap: spacing.md },
+  docAvatar: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: colors.warningLight,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  meta: { color: colors.textMuted, fontSize: 12, marginTop: spacing.sm },
-  chips: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, marginTop: spacing.md },
-  chip: {
-    backgroundColor: colors.primary,
+  docName: { fontSize: 16, fontWeight: "800", color: colors.text },
+  docSpecialty: { fontSize: 12, color: colors.textMuted, marginTop: 1 },
+  pendingBadge: {
+    backgroundColor: colors.warningLight,
+    paddingHorizontal: spacing.sm + 2,
+    paddingVertical: 3,
+    borderRadius: radius.full,
+  },
+  pendingBadgeText: { fontSize: 11, fontWeight: "700", color: colors.warningText },
+  noteBox: {
+    backgroundColor: colors.backgroundAlt,
+    padding: spacing.md,
+    borderRadius: radius.lg,
+    marginTop: spacing.md,
+  },
+  noteLabel: { fontSize: 11, fontWeight: "700", color: colors.textMuted },
+  noteText: { fontSize: 13, color: colors.text, marginTop: 2, fontStyle: "italic" },
+  durLabel: { fontSize: 12, fontWeight: "700", color: colors.text, marginTop: spacing.md, marginBottom: spacing.xs },
+  durationRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.xs },
+  durChip: {
+    backgroundColor: colors.backgroundAlt,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    borderRadius: 999,
-  },
-  chipText: { color: colors.primaryText, fontWeight: "600", fontSize: 13 },
-  buttonRow: { flexDirection: "row", marginTop: spacing.md, gap: spacing.sm, justifyContent: "flex-end" },
-  approveButton: {
-    backgroundColor: colors.primary,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm + 2,
-    borderRadius: radius.md,
-    minWidth: 100,
-    alignItems: "center",
-  },
-  approveText: { color: colors.primaryText, fontWeight: "600", fontSize: 14 },
-  denyButton: {
-    backgroundColor: "#FBEAEA",
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm + 2,
     borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: "#F0CCD0",
-    minWidth: 80,
+    borderColor: colors.border,
+  },
+  durChipActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  durChipText: { fontSize: 12, fontWeight: "700", color: colors.textMuted },
+  durChipTextActive: { color: colors.primaryText },
+  actionRow: { flexDirection: "row", gap: spacing.md, marginTop: spacing.lg },
+  approveBtn: {
+    flex: 1,
+    backgroundColor: colors.primary,
+    paddingVertical: spacing.md,
+    borderRadius: radius.lg,
     alignItems: "center",
   },
-  denyText: { color: colors.danger, fontWeight: "600", fontSize: 14 },
-  ghostButton: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm + 2,
+  approveBtnText: { color: colors.primaryText, fontWeight: "800", fontSize: 14 },
+  denyBtn: {
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.md,
+    borderRadius: radius.lg,
+    backgroundColor: colors.dangerLight,
+    borderWidth: 1,
+    borderColor: colors.dangerBorder,
+    alignItems: "center",
   },
-  ghostText: { color: colors.textMuted, fontWeight: "600", fontSize: 14 },
-  empty: { padding: spacing.xl, alignItems: "center" },
-  emptyText: { color: colors.text, fontWeight: "600", fontSize: 14 },
-  emptyHint: { color: colors.textMuted, fontSize: 13, marginTop: spacing.sm, textAlign: "center" },
+  denyBtnText: { color: colors.dangerText, fontWeight: "800", fontSize: 14 },
+  activeCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.xl,
+    padding: spacing.md + 2,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginBottom: spacing.sm,
+    ...shadows.sm,
+  },
+  activeHeader: { flexDirection: "row", alignItems: "center", gap: spacing.md },
+  docAvatarActive: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.successLight,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  activeMeta: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
+  revokeBtn: {
+    backgroundColor: colors.dangerLight,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 6,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.dangerBorder,
+  },
+  revokeBtnText: { color: colors.dangerText, fontWeight: "700", fontSize: 12 },
+  historyRow: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    marginBottom: spacing.xs,
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+  },
+  historyDoc: { fontSize: 13, fontWeight: "700", color: colors.text },
+  historyDate: { fontSize: 11, color: colors.textMuted, marginTop: 2 },
+  historyBadge: { paddingHorizontal: spacing.sm, paddingVertical: 2, borderRadius: radius.full },
+  historyBadgeText: { fontSize: 10, fontWeight: "700" },
+  muted: { color: colors.textMuted, fontSize: 13 },
 });

@@ -10,7 +10,7 @@ import {
   View,
 } from "react-native";
 import { type RecordDetail } from "../lib/queries";
-import { colors, radius, spacing } from "../lib/theme";
+import { colors, radius, shadows, spacing } from "../lib/theme";
 
 type Props = {
   visible: boolean;
@@ -104,14 +104,29 @@ export function RecordDetailModal({
     }
   }
 
+  const catIcon =
+    record?.category === "PRESCRIPTION"
+      ? "💊"
+      : record?.category === "LAB_RESULT"
+      ? "🧪"
+      : record?.category === "IMAGING"
+      ? "🩻"
+      : record?.category === "DISCHARGE_SUMMARY"
+      ? "📋"
+      : "📄";
+
   return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+    <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
       <View style={styles.backdrop}>
         <View style={styles.modalBox}>
+          {/* Header */}
           <View style={styles.modalHeader}>
+            <View style={styles.headerIconBox}>
+              <Text style={{ fontSize: 22 }}>{catIcon}</Text>
+            </View>
             <View style={{ flex: 1, paddingRight: spacing.sm }}>
               <Text style={styles.title} numberOfLines={2}>
-                {record?.title ?? "Record Details"}
+                {record?.title ?? "Document Details"}
               </Text>
               <Text style={styles.sub}>
                 {record?.category.replace(/_/g, " ").toLowerCase()} ·{" "}
@@ -126,39 +141,52 @@ export function RecordDetailModal({
           {loading ? (
             <View style={styles.loadingContainer}>
               <ActivityIndicator color={colors.primary} size="large" />
-              <Text style={styles.loadingText}>Loading document & AI extraction…</Text>
+              <Text style={styles.loadingText}>Loading document & AI clinical extraction…</Text>
             </View>
           ) : (
             <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
               {/* Status Banner */}
-              <View style={styles.statusRow}>
-                <View
-                  style={[
-                    styles.statusBadge,
-                    record?.aiStatus === "COMPLETED" ? styles.statusBadgeDone : styles.statusBadgePending,
-                  ]}
-                >
-                  <Text
+              <View style={styles.statusCard}>
+                <View style={styles.statusRow}>
+                  <View
                     style={[
-                      styles.statusBadgeText,
-                      record?.aiStatus === "COMPLETED" ? styles.statusBadgeTextDone : styles.statusBadgeTextPending,
+                      styles.statusBadge,
+                      record?.aiStatus === "COMPLETED" ? styles.statusBadgeDone : styles.statusBadgePending,
                     ]}
                   >
-                    {record?.aiStatus === "COMPLETED"
-                      ? "AI Extraction: Completed"
-                      : record?.aiStatus === "PROCESSING" || record?.aiStatus === "PENDING"
-                      ? "AI Extraction: Processing…"
-                      : "AI Extraction: Unavailable"}
-                  </Text>
+                    <View
+                      style={[
+                        styles.statusDot,
+                        {
+                          backgroundColor:
+                            record?.aiStatus === "COMPLETED" ? colors.success : colors.warning,
+                        },
+                      ]}
+                    />
+                    <Text
+                      style={[
+                        styles.statusBadgeText,
+                        record?.aiStatus === "COMPLETED"
+                          ? styles.statusBadgeTextDone
+                          : styles.statusBadgeTextPending,
+                      ]}
+                    >
+                      {record?.aiStatus === "COMPLETED"
+                        ? "FHIR AI Extraction: Complete"
+                        : record?.aiStatus === "PROCESSING" || record?.aiStatus === "PENDING"
+                        ? "FHIR AI Extraction: In Progress"
+                        : "FHIR AI Extraction: Unavailable"}
+                    </Text>
+                  </View>
+                  {record?.sizeBytes ? (
+                    <Text style={styles.sizeText}>{formatBytes(record.sizeBytes)}</Text>
+                  ) : null}
                 </View>
-                {record?.sizeBytes ? (
-                  <Text style={styles.sizeText}>{formatBytes(record.sizeBytes)}</Text>
-                ) : null}
               </View>
 
               {record?.notes ? (
-                <View style={styles.section}>
-                  <Text style={styles.sectionTitle}>Notes</Text>
+                <View style={styles.notesSection}>
+                  <Text style={styles.sectionTitle}>Document Notes</Text>
                   <Text style={styles.notesText}>{record.notes}</Text>
                 </View>
               ) : null}
@@ -166,26 +194,36 @@ export function RecordDetailModal({
               {/* AI Extraction Section */}
               <View style={styles.aiCard}>
                 <View style={styles.aiCardHeader}>
-                  <Text style={styles.aiCardTitle}>AI Extracted Clinical Entities</Text>
-                  <Text style={styles.aiCardSub}>Parsed into structured FHIR clinical schema</Text>
+                  <View style={styles.aiTitleRow}>
+                    <Text style={{ fontSize: 16 }}>✨</Text>
+                    <Text style={styles.aiCardTitle}>AI Extracted Clinical Entities</Text>
+                  </View>
+                  <Text style={styles.aiCardSub}>Parsed into structured FHIR R4 clinical resources</Text>
                 </View>
 
                 {!hasEntities ? (
                   <Text style={styles.emptyText}>
                     {record?.aiStatus === "COMPLETED"
-                      ? "No clinical entities (medications, conditions, labs) were detected in this document."
-                      : "AI analysis is in progress. Check back in a moment."}
+                      ? "No discrete entities (medications, conditions, observations) were detected in this document."
+                      : "AI extraction is analyzing this file in the background. Refresh in a few seconds."}
                   </Text>
                 ) : null}
 
-                {/* Conditions */}
+                {/* Diagnoses & Conditions */}
                 {conditions.length > 0 ? (
                   <View style={styles.entityGroup}>
-                    <Text style={styles.groupLabel}>Diagnoses & Conditions ({conditions.length})</Text>
+                    <View style={styles.groupHeaderRow}>
+                      <Text style={styles.groupIcon}>🩺</Text>
+                      <Text style={styles.groupLabel}>Diagnoses & Conditions ({conditions.length})</Text>
+                    </View>
                     {conditions.map((c, i) => (
-                      <View key={i} style={styles.entityItem}>
-                        <Text style={styles.entityTitle}>• {c.name}</Text>
-                        {c.status ? <Text style={styles.entitySub}>Status: {c.status}</Text> : null}
+                      <View key={i} style={styles.entityCard}>
+                        <Text style={styles.entityTitle}>{c.name}</Text>
+                        {c.status ? (
+                          <View style={styles.conditionStatusPill}>
+                            <Text style={styles.conditionStatusText}>{c.status}</Text>
+                          </View>
+                        ) : null}
                       </View>
                     ))}
                   </View>
@@ -194,29 +232,39 @@ export function RecordDetailModal({
                 {/* Medications */}
                 {medications.length > 0 ? (
                   <View style={styles.entityGroup}>
-                    <Text style={styles.groupLabel}>Medications & Prescriptions ({medications.length})</Text>
+                    <View style={styles.groupHeaderRow}>
+                      <Text style={styles.groupIcon}>💊</Text>
+                      <Text style={styles.groupLabel}>Prescribed Medications ({medications.length})</Text>
+                    </View>
                     {medications.map((m, i) => (
-                      <View key={i} style={styles.entityItem}>
-                        <Text style={styles.entityTitle}>💊 {m.name}</Text>
-                        {m.dosage ? <Text style={styles.entitySub}>Dosage / Sig: {m.dosage}</Text> : null}
+                      <View key={i} style={styles.entityCard}>
+                        <Text style={styles.entityTitle}>{m.name}</Text>
+                        {m.dosage ? (
+                          <Text style={styles.dosageText}>Dosage / Sig: {m.dosage}</Text>
+                        ) : null}
                       </View>
                     ))}
                   </View>
                 ) : null}
 
-                {/* Observations / Labs */}
+                {/* Lab Observations */}
                 {observations.length > 0 ? (
                   <View style={styles.entityGroup}>
-                    <Text style={styles.groupLabel}>Lab Observations & Biomarkers ({observations.length})</Text>
+                    <View style={styles.groupHeaderRow}>
+                      <Text style={styles.groupIcon}>🧪</Text>
+                      <Text style={styles.groupLabel}>Biomarkers & Lab Readings ({observations.length})</Text>
+                    </View>
                     {observations.map((o, i) => (
-                      <View key={i} style={styles.labItem}>
+                      <View key={i} style={styles.labCard}>
                         <View style={{ flex: 1 }}>
                           <Text style={styles.entityTitle}>{o.test}</Text>
                           {o.referenceRange ? (
-                            <Text style={styles.entitySub}>Ref: {o.referenceRange}</Text>
+                            <Text style={styles.labRef}>Normal Range: {o.referenceRange}</Text>
                           ) : null}
                         </View>
-                        <Text style={styles.labValue}>{o.value}</Text>
+                        <View style={styles.labValuePill}>
+                          <Text style={styles.labValueText}>{o.value}</Text>
+                        </View>
                       </View>
                     ))}
                   </View>
@@ -225,10 +273,17 @@ export function RecordDetailModal({
                 {/* Allergies */}
                 {allergies.length > 0 ? (
                   <View style={styles.entityGroup}>
-                    <Text style={styles.groupLabel}>Allergies ({allergies.length})</Text>
+                    <View style={styles.groupHeaderRow}>
+                      <Text style={styles.groupIcon}>⚠️</Text>
+                      <Text style={[styles.groupLabel, { color: colors.dangerText }]}>
+                        Documented Allergies ({allergies.length})
+                      </Text>
+                    </View>
                     {allergies.map((a, i) => (
-                      <View key={i} style={styles.entityItem}>
-                        <Text style={[styles.entityTitle, { color: colors.danger }]}>⚠️ {a.substance}</Text>
+                      <View key={i} style={[styles.entityCard, { borderColor: colors.dangerBorder }]}>
+                        <Text style={[styles.entityTitle, { color: colors.dangerText }]}>
+                          ⚠️ {a.substance}
+                        </Text>
                       </View>
                     ))}
                   </View>
@@ -237,17 +292,20 @@ export function RecordDetailModal({
                 {/* Immunizations */}
                 {immunizations.length > 0 ? (
                   <View style={styles.entityGroup}>
-                    <Text style={styles.groupLabel}>Immunizations ({immunizations.length})</Text>
+                    <View style={styles.groupHeaderRow}>
+                      <Text style={styles.groupIcon}>💉</Text>
+                      <Text style={styles.groupLabel}>Immunizations ({immunizations.length})</Text>
+                    </View>
                     {immunizations.map((im, i) => (
-                      <View key={i} style={styles.entityItem}>
-                        <Text style={styles.entityTitle}>💉 {im.vaccine}</Text>
+                      <View key={i} style={styles.entityCard}>
+                        <Text style={styles.entityTitle}>{im.vaccine}</Text>
                       </View>
                     ))}
                   </View>
                 ) : null}
               </View>
 
-              {/* Actions */}
+              {/* Action Buttons */}
               <View style={styles.actionRow}>
                 {viewUrl ? (
                   <Pressable
@@ -256,7 +314,7 @@ export function RecordDetailModal({
                     style={({ pressed }) => [styles.viewDocBtn, pressed && { opacity: 0.85 }]}
                   >
                     <Text style={styles.viewDocBtnText}>
-                      {loadingViewUrl ? "Opening…" : "Open Original Document ↗"}
+                      {loadingViewUrl ? "Opening Document…" : "View Original Document ↗"}
                     </Text>
                   </Pressable>
                 ) : null}
@@ -285,104 +343,148 @@ function formatBytes(n: number): string {
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    backgroundColor: "rgba(15, 23, 42, 0.65)",
     justifyContent: "center",
     alignItems: "center",
     padding: spacing.md,
   },
   modalBox: {
     width: "100%",
-    maxWidth: 580,
-    maxHeight: "90%",
+    maxWidth: 620,
+    maxHeight: "92%",
     backgroundColor: colors.surface,
-    borderRadius: radius.lg,
+    borderRadius: radius.xxl,
     overflow: "hidden",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 10,
-    elevation: 8,
+    ...shadows.xl,
   },
   modalHeader: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
     padding: spacing.lg,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
-    backgroundColor: colors.background,
-  },
-  title: { fontSize: 18, fontWeight: "700", color: colors.text },
-  sub: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
-  closeBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
     backgroundColor: colors.surface,
+    gap: spacing.md,
+  },
+  headerIconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: radius.lg,
+    backgroundColor: colors.background,
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 1,
-    borderColor: colors.border,
   },
-  closeBtnText: { fontSize: 14, color: colors.textMuted, fontWeight: "700" },
-  loadingContainer: { padding: spacing.xxl, alignItems: "center", gap: spacing.md },
-  loadingText: { color: colors.textMuted, fontSize: 14 },
+  title: { fontSize: 17, fontWeight: "800", color: colors.text, letterSpacing: -0.3 },
+  sub: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
+  closeBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: colors.backgroundAlt,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  closeBtnText: { fontSize: 13, color: colors.textMuted, fontWeight: "700" },
+  loadingContainer: { padding: spacing.xxxl, alignItems: "center", gap: spacing.md },
+  loadingText: { color: colors.textMuted, fontSize: 14, fontWeight: "500" },
   scrollContent: { padding: spacing.lg, gap: spacing.md },
+  statusCard: {
+    backgroundColor: colors.backgroundAlt,
+    padding: spacing.md,
+    borderRadius: radius.lg,
+  },
   statusRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   statusBadge: {
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: spacing.md,
-    paddingVertical: 4,
+    paddingVertical: 5,
     borderRadius: radius.full,
+    gap: 6,
   },
-  statusBadgeDone: { backgroundColor: "#E6F4EA" },
-  statusBadgePending: { backgroundColor: "#FFF8E1" },
-  statusBadgeText: { fontSize: 12, fontWeight: "600" },
-  statusBadgeTextDone: { color: "#137333" },
-  statusBadgeTextPending: { color: "#B06000" },
-  sizeText: { fontSize: 12, color: colors.textMuted },
-  section: { backgroundColor: colors.background, padding: spacing.md, borderRadius: radius.md },
+  statusDot: { width: 6, height: 6, borderRadius: 3 },
+  statusBadgeDone: { backgroundColor: colors.successLight },
+  statusBadgePending: { backgroundColor: colors.warningLight },
+  statusBadgeText: { fontSize: 12, fontWeight: "700" },
+  statusBadgeTextDone: { color: colors.successText },
+  statusBadgeTextPending: { color: colors.warningText },
+  sizeText: { fontSize: 12, color: colors.textMuted, fontWeight: "600" },
+  notesSection: { backgroundColor: colors.backgroundAlt, padding: spacing.md, borderRadius: radius.lg },
   sectionTitle: { fontSize: 13, fontWeight: "700", color: colors.text, marginBottom: 4 },
-  notesText: { fontSize: 13, color: colors.text },
+  notesText: { fontSize: 13, color: colors.textSecondary, lineHeight: 18 },
   aiCard: {
-    backgroundColor: "#F4F7FB",
-    borderRadius: radius.md,
-    padding: spacing.md,
+    backgroundColor: colors.aiLight,
+    borderRadius: radius.xl,
+    padding: spacing.lg,
     borderWidth: 1,
-    borderColor: "#D3E3FD",
+    borderColor: colors.aiBorder,
   },
-  aiCardHeader: { marginBottom: spacing.sm },
-  aiCardTitle: { fontSize: 15, fontWeight: "700", color: colors.primary },
-  aiCardSub: { fontSize: 11, color: colors.textMuted, marginTop: 2 },
+  aiCardHeader: { marginBottom: spacing.md },
+  aiTitleRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  aiCardTitle: { fontSize: 15, fontWeight: "800", color: colors.aiDark },
+  aiCardSub: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
   emptyText: { fontSize: 13, color: colors.textMuted, fontStyle: "italic", paddingVertical: spacing.sm },
-  entityGroup: { marginTop: spacing.sm, paddingTop: spacing.sm, borderTopWidth: 1, borderTopColor: "#E1ECF1" },
-  groupLabel: { fontSize: 12, fontWeight: "700", color: colors.text, marginBottom: 4 },
-  entityItem: { paddingVertical: 3 },
-  entityTitle: { fontSize: 13, fontWeight: "600", color: colors.text },
-  entitySub: { fontSize: 12, color: colors.textMuted, marginLeft: spacing.md },
-  labItem: {
+  entityGroup: { marginTop: spacing.md, paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: colors.aiBorder },
+  groupHeaderRow: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: spacing.sm },
+  groupIcon: { fontSize: 14 },
+  groupLabel: { fontSize: 13, fontWeight: "700", color: colors.text },
+  entityCard: {
+    backgroundColor: colors.surface,
+    padding: spacing.md,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginBottom: spacing.xs,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingVertical: 4,
   },
-  labValue: { fontSize: 13, fontWeight: "700", color: colors.primary },
+  entityTitle: { fontSize: 14, fontWeight: "700", color: colors.text },
+  dosageText: { fontSize: 12, color: colors.primaryDark, fontWeight: "600", marginTop: 2 },
+  conditionStatusPill: {
+    backgroundColor: colors.primaryLight,
+    paddingHorizontal: spacing.sm + 2,
+    paddingVertical: 2,
+    borderRadius: radius.full,
+  },
+  conditionStatusText: { fontSize: 11, fontWeight: "700", color: colors.primaryDark },
+  labCard: {
+    backgroundColor: colors.surface,
+    padding: spacing.md,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginBottom: spacing.xs,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  labRef: { fontSize: 11, color: colors.textMuted, marginTop: 2 },
+  labValuePill: {
+    backgroundColor: colors.secondaryLight,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 6,
+    borderRadius: radius.md,
+  },
+  labValueText: { fontSize: 13, fontWeight: "800", color: colors.secondaryText },
   actionRow: { flexDirection: "row", gap: spacing.md, marginTop: spacing.md },
   viewDocBtn: {
     flex: 1,
     backgroundColor: colors.primary,
-    paddingVertical: spacing.md,
-    borderRadius: radius.md,
+    paddingVertical: spacing.md + 2,
+    borderRadius: radius.lg,
     alignItems: "center",
+    ...shadows.sm,
   },
-  viewDocBtnText: { color: colors.primaryText, fontWeight: "600", fontSize: 14 },
+  viewDocBtnText: { color: colors.primaryText, fontWeight: "700", fontSize: 14 },
   doneBtn: {
     paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.md,
-    borderRadius: radius.md,
-    backgroundColor: colors.background,
+    paddingVertical: spacing.md + 2,
+    borderRadius: radius.lg,
+    backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
     alignItems: "center",
   },
-  doneBtnText: { color: colors.text, fontWeight: "600", fontSize: 14 },
+  doneBtnText: { color: colors.text, fontWeight: "700", fontSize: 14 },
 });

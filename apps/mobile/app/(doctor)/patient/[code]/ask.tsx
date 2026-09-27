@@ -14,7 +14,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ApiError } from "../../../../lib/api";
 import { useAskAi } from "../../../../lib/queries";
-import { colors, radius, spacing } from "../../../../lib/theme";
+import { colors, radius, shadows, spacing } from "../../../../lib/theme";
 
 type QaEntry = {
   id: string;
@@ -78,7 +78,7 @@ export default function AskAiScreen() {
 
   return (
     <SafeAreaView style={styles.safe} edges={["bottom"]}>
-      <Stack.Screen options={{ title: `Ask AI · ${code ?? ""}` }} />
+      <Stack.Screen options={{ title: `AI Clinical Assistant · ${code ?? ""}` }} />
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
         <ScrollView
           ref={scrollRef}
@@ -89,15 +89,20 @@ export default function AskAiScreen() {
           {/* Welcome Hint Card */}
           <View style={styles.hintCard}>
             <View style={styles.hintCardHead}>
-              <Text style={styles.aiSpark}>✨</Text>
-              <Text style={styles.hintTitle}>AI Clinical Assistant</Text>
+              <View style={styles.sparkIconBox}>
+                <Text style={{ fontSize: 18 }}>✨</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.hintTitle}>AI Clinical Assistant</Text>
+                <Text style={styles.hintSub}>Grounded on verified FHIR clinical records for {code}</Text>
+              </View>
             </View>
             <Text style={styles.hintBody}>
-              This AI is strictly grounded on {code}&apos;s verified medical records, prescriptions, lab tests, and
-              allergies.
+              Ask direct clinical inquiries. The AI extracts answers strictly from verified prescriptions, diagnostic
+              reports, lab observations, and conditions.
             </Text>
 
-            <Text style={styles.hintSectionTitle}>Quick Clinical Questions:</Text>
+            <Text style={styles.hintSectionTitle}>Quick Inquiries:</Text>
             <View style={styles.chipContainer}>
               {SUGGESTED_QUESTIONS.map((q, idx) => (
                 <Pressable
@@ -112,16 +117,18 @@ export default function AskAiScreen() {
             </View>
           </View>
 
-          {/* Conversation History */}
+          {/* Conversation Exchange */}
           {history.map((e) => (
             <View key={e.id} style={styles.exchange}>
-              {/* Doctor question */}
+              {/* Doctor Question */}
               <View style={styles.questionBubble}>
-                <Text style={styles.questionRole}>Doctor Query</Text>
+                <View style={styles.questionRoleRow}>
+                  <Text style={styles.questionRole}>👨‍⚕️ Clinician Inquiry</Text>
+                </View>
                 <Text style={styles.questionText}>{e.question}</Text>
               </View>
 
-              {/* AI Answer */}
+              {/* AI Answer Card */}
               {e.error ? (
                 <View style={styles.errorBubble}>
                   <Text style={styles.errorText}>⚠️ {e.error}</Text>
@@ -129,25 +136,28 @@ export default function AskAiScreen() {
               ) : e.answer ? (
                 <View style={styles.answerBubble}>
                   <View style={styles.answerHeader}>
-                    <Text style={styles.aiLabel}>✨ MediVault AI</Text>
+                    <View style={styles.aiTag}>
+                      <Text style={{ fontSize: 12 }}>✨</Text>
+                      <Text style={styles.aiLabel}>MediVault Clinical AI</Text>
+                    </View>
                     {e.model ? <Text style={styles.modelTag}>{e.model}</Text> : null}
                   </View>
                   <Text style={styles.answerText}>{e.answer}</Text>
-                  <Text style={styles.disclaimerText}>
-                    AI-generated clinical response — verify with source diagnostic reports.
-                  </Text>
-                  {e.tokens ? (
-                    <Text style={styles.answerMeta}>
-                      Tokens: {e.tokens.input} prompt · {e.tokens.output} response
+                  <View style={styles.answerFooter}>
+                    <Text style={styles.disclaimerText}>
+                      AI-generated decision support — verify with source diagnostic reports.
                     </Text>
-                  ) : null}
+                    {e.tokens ? (
+                      <Text style={styles.answerMeta}>
+                        Tokens: {e.tokens.input} prompt · {e.tokens.output} completion
+                      </Text>
+                    ) : null}
+                  </View>
                 </View>
               ) : (
-                <View style={styles.answerBubble}>
-                  <View style={styles.loadingRow}>
-                    <ActivityIndicator color={colors.primary} size="small" />
-                    <Text style={styles.loadingText}>Analyzing extracted clinical records…</Text>
-                  </View>
+                <View style={styles.loadingBubble}>
+                  <ActivityIndicator color={colors.ai} size="small" />
+                  <Text style={styles.loadingText}>Analyzing extracted clinical records…</Text>
                 </View>
               )}
             </View>
@@ -159,7 +169,7 @@ export default function AskAiScreen() {
           <TextInput
             value={question}
             onChangeText={setQuestion}
-            placeholder="Ask a question about this patient's records…"
+            placeholder="Ask anything about this patient's medical records…"
             placeholderTextColor={colors.textMuted}
             style={styles.input}
             multiline
@@ -189,71 +199,103 @@ export default function AskAiScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
-  scroll: { padding: spacing.lg, paddingBottom: spacing.xl, gap: spacing.md },
+  scroll: { padding: spacing.lg, paddingBottom: spacing.xxxl, gap: spacing.lg },
   hintCard: {
-    backgroundColor: "#F4F7FB",
-    borderRadius: radius.lg,
+    backgroundColor: colors.aiLight,
+    borderRadius: radius.xl,
     padding: spacing.lg,
     borderWidth: 1,
-    borderColor: "#D3E3FD",
+    borderColor: colors.aiBorder,
     gap: spacing.sm,
+    ...shadows.sm,
   },
-  hintCardHead: { flexDirection: "row", alignItems: "center", gap: spacing.xs },
-  aiSpark: { fontSize: 18 },
-  hintTitle: { color: colors.primary, fontWeight: "700", fontSize: 16 },
-  hintBody: { color: colors.text, fontSize: 13, lineHeight: 18 },
+  hintCardHead: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+  sparkIconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: radius.md,
+    backgroundColor: colors.surface,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  hintTitle: { color: colors.aiDark, fontWeight: "800", fontSize: 16 },
+  hintSub: { color: colors.textMuted, fontSize: 12, marginTop: 1 },
+  hintBody: { color: colors.textSecondary, fontSize: 13, lineHeight: 18 },
   hintSectionTitle: { color: colors.text, fontWeight: "700", fontSize: 12, marginTop: spacing.xs },
   chipContainer: { gap: spacing.xs, marginTop: 2 },
   chip: {
     backgroundColor: colors.surface,
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.md,
+    paddingVertical: spacing.sm + 2,
+    borderRadius: radius.lg,
     borderWidth: 1,
-    borderColor: "#B7D2F5",
+    borderColor: colors.aiBorder,
   },
-  chipPressed: { backgroundColor: "#E8F0FE" },
-  chipText: { fontSize: 12, color: colors.primary, fontWeight: "600" },
-  exchange: { gap: spacing.sm },
+  chipPressed: { backgroundColor: colors.backgroundAlt },
+  chipText: { fontSize: 13, color: colors.aiDark, fontWeight: "600" },
+  exchange: { gap: spacing.md },
   questionBubble: {
     alignSelf: "flex-end",
-    backgroundColor: colors.primary,
-    borderRadius: radius.lg,
-    borderBottomRightRadius: 2,
-    padding: spacing.md,
+    backgroundColor: colors.primaryDeep,
+    borderRadius: radius.xl,
+    borderBottomRightRadius: radius.xs,
+    padding: spacing.md + 2,
     maxWidth: "88%",
+    ...shadows.sm,
   },
-  questionRole: { fontSize: 10, color: "rgba(255, 255, 255, 0.8)", fontWeight: "700", marginBottom: 2 },
-  questionText: { color: colors.primaryText, fontSize: 14, fontWeight: "500" },
+  questionRoleRow: { marginBottom: 4 },
+  questionRole: { fontSize: 11, color: "rgba(255, 255, 255, 0.8)", fontWeight: "700" },
+  questionText: { color: colors.primaryText, fontSize: 14, fontWeight: "500", lineHeight: 20 },
   answerBubble: {
     alignSelf: "flex-start",
     backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    borderBottomLeftRadius: 2,
-    padding: spacing.md,
+    borderRadius: radius.xl,
+    borderBottomLeftRadius: radius.xs,
+    padding: spacing.lg,
     borderWidth: 1,
-    borderColor: colors.border,
-    maxWidth: "92%",
-    gap: spacing.xs,
+    borderColor: colors.aiBorder,
+    maxWidth: "94%",
+    gap: spacing.sm,
+    ...shadows.sm,
   },
   answerHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  aiLabel: { fontSize: 12, fontWeight: "700", color: colors.primary },
-  modelTag: { fontSize: 10, color: colors.textMuted, backgroundColor: colors.background, paddingHorizontal: 6, paddingVertical: 2, borderRadius: radius.sm },
+  aiTag: { flexDirection: "row", alignItems: "center", gap: 4 },
+  aiLabel: { fontSize: 12, fontWeight: "800", color: colors.aiDark },
+  modelTag: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: colors.textMuted,
+    backgroundColor: colors.backgroundAlt,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: radius.full,
+  },
   answerText: { color: colors.text, fontSize: 14, lineHeight: 22 },
-  disclaimerText: { fontSize: 10, color: colors.textMuted, fontStyle: "italic", marginTop: 4 },
+  answerFooter: { borderTopWidth: 1, borderTopColor: colors.borderLight, paddingTop: spacing.xs, gap: 2 },
+  disclaimerText: { fontSize: 10, color: colors.textMuted, fontStyle: "italic" },
   answerMeta: { color: colors.textMuted, fontSize: 10 },
-  loadingRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingVertical: spacing.xs },
-  loadingText: { color: colors.textMuted, fontSize: 13 },
+  loadingBubble: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    backgroundColor: colors.aiLight,
+    padding: spacing.md,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.aiBorder,
+    alignSelf: "flex-start",
+  },
+  loadingText: { color: colors.aiDark, fontSize: 13, fontWeight: "600" },
   errorBubble: {
     alignSelf: "flex-start",
-    backgroundColor: "#FBEAEA",
-    borderRadius: radius.md,
+    backgroundColor: colors.dangerLight,
+    borderRadius: radius.lg,
     padding: spacing.md,
     borderWidth: 1,
-    borderColor: "#F5C2C7",
+    borderColor: colors.dangerBorder,
     maxWidth: "90%",
   },
-  errorText: { color: colors.danger, fontSize: 13 },
+  errorText: { color: colors.dangerText, fontSize: 13, fontWeight: "600" },
   composer: {
     flexDirection: "row",
     alignItems: "flex-end",
@@ -262,13 +304,14 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: colors.border,
     gap: spacing.sm,
+    ...shadows.md,
   },
   input: {
     flex: 1,
-    minHeight: 44,
+    minHeight: 46,
     maxHeight: 120,
     backgroundColor: colors.background,
-    borderRadius: radius.md,
+    borderRadius: radius.lg,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm + 2,
     fontSize: 14,
@@ -277,12 +320,13 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   sendBtn: {
-    backgroundColor: colors.primary,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.lg,
-    height: 44,
+    backgroundColor: colors.ai,
+    borderRadius: radius.lg,
+    paddingHorizontal: spacing.xl,
+    height: 46,
     alignItems: "center",
     justifyContent: "center",
+    ...shadows.sm,
   },
-  sendText: { color: colors.primaryText, fontWeight: "700", fontSize: 14 },
+  sendText: { color: colors.surface, fontWeight: "800", fontSize: 14 },
 });

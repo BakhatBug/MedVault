@@ -13,26 +13,26 @@ import {
 import { RecordDetailModal } from "../../components/RecordDetailModal";
 import { ScreenContainer } from "../../components/ScreenContainer";
 import { useRecordDetail, useRecords, useRecordViewUrl } from "../../lib/queries";
-import { colors, radius, spacing } from "../../lib/theme";
+import { colors, radius, shadows, spacing } from "../../lib/theme";
 
-const CATEGORIES: Array<{ key: string; label: string }> = [
-  { key: "ALL", label: "All Folders" },
-  { key: "PRESCRIPTION", label: "Prescriptions" },
-  { key: "LAB_RESULT", label: "Lab Results" },
-  { key: "IMAGING", label: "Imaging & Scans" },
-  { key: "DISCHARGE_SUMMARY", label: "Discharge" },
-  { key: "CONSULTATION_NOTE", label: "Doctor Notes" },
-  { key: "VACCINATION", label: "Vaccines" },
-  { key: "OTHER", label: "Other" },
+const CATEGORIES: Array<{ key: string; label: string; icon: string }> = [
+  { key: "ALL", label: "All Folders", icon: "📁" },
+  { key: "PRESCRIPTION", label: "Prescriptions", icon: "💊" },
+  { key: "LAB_RESULT", label: "Lab Results", icon: "🧪" },
+  { key: "IMAGING", label: "Imaging & Scans", icon: "🩻" },
+  { key: "DISCHARGE_SUMMARY", label: "Discharge", icon: "📋" },
+  { key: "CONSULTATION_NOTE", label: "Doctor Notes", icon: "📝" },
+  { key: "VACCINATION", label: "Vaccines", icon: "💉" },
+  { key: "OTHER", label: "Other", icon: "📄" },
 ];
 
-const STATUS_STYLE: Record<string, { label: string; bg: string; fg: string }> = {
-  PENDING: { label: "Processing…", bg: "#FFF8E1", fg: "#B06000" },
-  PROCESSING: { label: "Extracting AI…", bg: "#FFF8E1", fg: "#B06000" },
-  COMPLETED: { label: "AI Extracted", bg: "#E6F4EA", fg: "#137333" },
-  FAILED_RETRYABLE: { label: "Retrying AI", bg: "#FEEFC3", fg: "#B06000" },
-  FAILED_PERMANENT: { label: "AI Unavailable", bg: "#F1F3F4", fg: "#5F6368" },
-  UNAVAILABLE: { label: "AI Unavailable", bg: "#F1F3F4", fg: "#5F6368" },
+const STATUS_CONFIG: Record<string, { label: string; bg: string; fg: string; dot: string }> = {
+  PENDING: { label: "Processing…", bg: colors.warningLight, fg: colors.warningText, dot: "#F59E0B" },
+  PROCESSING: { label: "Extracting AI…", bg: colors.aiLight, fg: colors.aiDark, dot: "#6366F1" },
+  COMPLETED: { label: "AI Extracted", bg: colors.successLight, fg: colors.successText, dot: "#10B981" },
+  FAILED_RETRYABLE: { label: "Retrying AI", bg: colors.warningLight, fg: colors.warningText, dot: "#F59E0B" },
+  FAILED_PERMANENT: { label: "AI Unavailable", bg: colors.backgroundAlt, fg: colors.textMuted, dot: "#94A3B8" },
+  UNAVAILABLE: { label: "AI Unavailable", bg: colors.backgroundAlt, fg: colors.textMuted, dot: "#94A3B8" },
 };
 
 export default function RecordsScreen() {
@@ -81,13 +81,13 @@ export default function RecordsScreen() {
         </Pressable>
       </View>
 
-      {/* Search bar */}
+      {/* Search Bar */}
       <View style={styles.searchBox}>
         <Text style={styles.searchIcon}>🔍</Text>
         <TextInput
           value={searchQuery}
           onChangeText={setSearchQuery}
-          placeholder="Search records by title or type…"
+          placeholder="Search records by title, doctor, or folder…"
           placeholderTextColor={colors.textMuted}
           style={styles.searchInput}
         />
@@ -98,7 +98,7 @@ export default function RecordsScreen() {
         ) : null}
       </View>
 
-      {/* Category Tabs / Folders */}
+      {/* Category Folders Scroll */}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -112,6 +112,7 @@ export default function RecordsScreen() {
               onPress={() => setSelectedCategory(c.key)}
               style={[styles.categoryPill, isSelected && styles.categoryPillActive]}
             >
+              <Text style={{ fontSize: 13, marginRight: 4 }}>{c.icon}</Text>
               <Text style={[styles.categoryText, isSelected && styles.categoryTextActive]}>
                 {c.label}
               </Text>
@@ -120,64 +121,84 @@ export default function RecordsScreen() {
         })}
       </ScrollView>
 
-      {/* Records List */}
+      {/* Records Feed */}
       {records.isLoading ? (
         <View style={styles.loadingBox}>
-          <ActivityIndicator color={colors.primary} />
+          <ActivityIndicator color={colors.primary} size="large" />
           <Text style={styles.muted}>Loading vault documents…</Text>
         </View>
       ) : records.error ? (
         <Text style={styles.error}>{(records.error as Error).message}</Text>
       ) : filteredItems.length === 0 ? (
         <View style={styles.emptyCard}>
+          <Text style={{ fontSize: 40, marginBottom: spacing.xs }}>📂</Text>
           <Text style={styles.emptyTitle}>No records in this folder</Text>
           <Text style={styles.emptySub}>
             {searchQuery
-              ? "No records matched your search query."
+              ? "No documents matched your search query."
               : "Upload a document, prescription, or lab result to see it here."}
           </Text>
           <Pressable
             onPress={() => router.push("/(patient)/upload")}
             style={({ pressed }) => [styles.uploadEmptyBtn, pressed && { opacity: 0.85 }]}
           >
-            <Text style={styles.uploadEmptyBtnText}>Upload Medical Document</Text>
+            <Text style={styles.uploadEmptyBtnText}>+ Upload Medical Document</Text>
           </Pressable>
         </View>
       ) : (
         filteredItems.map((r) => {
-          const status = STATUS_STYLE[r.aiStatus] ?? {
+          const status = STATUS_CONFIG[r.aiStatus] ?? {
             label: r.aiStatus,
-            bg: "#F1F3F4",
-            fg: "#5F6368",
+            bg: colors.backgroundAlt,
+            fg: colors.textMuted,
+            dot: "#94A3B8",
           };
+          const catIcon =
+            r.category === "PRESCRIPTION"
+              ? "💊"
+              : r.category === "LAB_RESULT"
+              ? "🧪"
+              : r.category === "IMAGING"
+              ? "🩻"
+              : r.category === "DISCHARGE_SUMMARY"
+              ? "📋"
+              : "📄";
+
           return (
             <Pressable
               key={r.id}
               onPress={() => setSelectedRecordId(r.id)}
               style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
             >
-              <View style={styles.rowHeader}>
-                <Text style={styles.rowTitle} numberOfLines={2}>
-                  {r.title}
-                </Text>
+              <View style={styles.cardTopRow}>
+                <View style={styles.catIconBox}>
+                  <Text style={{ fontSize: 20 }}>{catIcon}</Text>
+                </View>
+                <View style={{ flex: 1, paddingRight: spacing.xs }}>
+                  <Text style={styles.rowTitle} numberOfLines={2}>
+                    {r.title}
+                  </Text>
+                  <Text style={styles.rowSub}>
+                    {r.category.replace(/_/g, " ").toLowerCase()} · {new Date(r.uploadedAt).toLocaleDateString()} ·{" "}
+                    {formatBytes(r.sizeBytes)}
+                  </Text>
+                </View>
                 <View style={[styles.badge, { backgroundColor: status.bg }]}>
+                  <View style={[styles.statusDot, { backgroundColor: status.dot }]} />
                   <Text style={[styles.badgeText, { color: status.fg }]}>{status.label}</Text>
                 </View>
               </View>
 
-              <View style={styles.rowMeta}>
-                <Text style={styles.rowSub}>
-                  📁 {r.category.replace(/_/g, " ").toLowerCase()} · 📅{" "}
-                  {new Date(r.uploadedAt).toLocaleDateString()} · 💾 {formatBytes(r.sizeBytes)}
-                </Text>
-                <Text style={styles.chevron}>View AI Data ›</Text>
+              <View style={styles.cardBottomRow}>
+                <Text style={styles.cardHint}>Click to view AI extracted clinical data</Text>
+                <Text style={styles.inspectBtn}>Inspect AI Data →</Text>
               </View>
             </Pressable>
           );
         })
       )}
 
-      {/* Detail Modal */}
+      {/* AI Extraction Detail Modal */}
       <RecordDetailModal
         visible={!!selectedRecordId}
         onClose={() => setSelectedRecordId(null)}
@@ -205,30 +226,34 @@ const styles = StyleSheet.create({
   },
   addButton: {
     backgroundColor: colors.primary,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm + 2,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm + 3,
     borderRadius: radius.md,
     marginTop: spacing.xs,
+    ...shadows.sm,
   },
-  addButtonText: { color: colors.primaryText, fontWeight: "600", fontSize: 14 },
-  title: { fontSize: 24, fontWeight: "700", color: colors.text },
-  subtitle: { color: colors.textMuted, marginTop: spacing.xs, fontSize: 13 },
+  addButtonText: { color: colors.primaryText, fontWeight: "700", fontSize: 13 },
+  title: { fontSize: 24, fontWeight: "800", color: colors.text, letterSpacing: -0.5 },
+  subtitle: { color: colors.textMuted, marginTop: 2, fontSize: 13 },
   searchBox: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: radius.md,
+    borderRadius: radius.lg,
     paddingHorizontal: spacing.md,
     marginBottom: spacing.md,
+    ...shadows.sm,
   },
   searchIcon: { fontSize: 14, marginRight: spacing.sm },
-  searchInput: { flex: 1, paddingVertical: spacing.sm + 2, fontSize: 14, color: colors.text },
+  searchInput: { flex: 1, paddingVertical: spacing.md, fontSize: 14, color: colors.text },
   clearBtn: { padding: spacing.xs },
   clearBtnText: { color: colors.textMuted, fontSize: 12 },
-  categoryScroll: { gap: spacing.sm, paddingBottom: spacing.md },
+  categoryScroll: { gap: spacing.xs, paddingBottom: spacing.md },
   categoryPill: {
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     borderRadius: radius.full,
@@ -241,18 +266,19 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
   },
   categoryText: { fontSize: 13, fontWeight: "600", color: colors.textMuted },
-  categoryTextActive: { color: colors.primaryText },
-  loadingBox: { padding: spacing.xl, alignItems: "center", gap: spacing.sm },
+  categoryTextActive: { color: colors.primaryText, fontWeight: "700" },
+  loadingBox: { padding: spacing.xxl, alignItems: "center", gap: spacing.sm },
   emptyCard: {
     backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: spacing.xl,
+    borderRadius: radius.xl,
+    padding: spacing.xxl,
     alignItems: "center",
     borderWidth: 1,
     borderColor: colors.border,
     marginTop: spacing.sm,
+    ...shadows.sm,
   },
-  emptyTitle: { fontSize: 16, fontWeight: "700", color: colors.text },
+  emptyTitle: { fontSize: 17, fontWeight: "700", color: colors.text },
   emptySub: {
     fontSize: 13,
     color: colors.textMuted,
@@ -262,41 +288,61 @@ const styles = StyleSheet.create({
   },
   uploadEmptyBtn: {
     backgroundColor: colors.primary,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm + 4,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.md,
     borderRadius: radius.md,
   },
-  uploadEmptyBtnText: { color: colors.primaryText, fontWeight: "600", fontSize: 14 },
+  uploadEmptyBtnText: { color: colors.primaryText, fontWeight: "700", fontSize: 14 },
   row: {
     backgroundColor: colors.surface,
-    borderRadius: radius.md,
-    padding: spacing.md,
-    marginBottom: spacing.sm,
+    borderRadius: radius.xl,
+    padding: spacing.md + 2,
+    marginBottom: spacing.md,
     borderWidth: 1,
     borderColor: colors.border,
+    ...shadows.sm,
   },
-  rowPressed: { backgroundColor: "#F9FAFB" },
-  rowHeader: {
+  rowPressed: { backgroundColor: colors.backgroundAlt },
+  cardTopRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "flex-start",
-    gap: spacing.sm,
+    gap: spacing.md,
   },
-  rowTitle: { color: colors.text, fontWeight: "700", fontSize: 14, flex: 1 },
-  rowMeta: {
+  catIconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: radius.lg,
+    backgroundColor: colors.background,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  rowTitle: { color: colors.text, fontWeight: "700", fontSize: 15, lineHeight: 20 },
+  rowSub: { color: colors.textMuted, fontSize: 12, marginTop: 4 },
+  badge: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: spacing.sm + 2,
+    paddingVertical: 4,
+    borderRadius: radius.full,
+    gap: 4,
+  },
+  statusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  badgeText: { fontSize: 11, fontWeight: "700" },
+  cardBottomRow: {
+    marginTop: spacing.md,
+    paddingTop: spacing.sm + 2,
+    borderTopWidth: 1,
+    borderTopColor: colors.borderLight,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginTop: spacing.sm,
   },
-  rowSub: { color: colors.textMuted, fontSize: 12 },
-  chevron: { color: colors.primary, fontSize: 12, fontWeight: "600" },
-  badge: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    borderRadius: radius.sm,
-  },
-  badgeText: { fontSize: 11, fontWeight: "600" },
+  cardHint: { fontSize: 11, color: colors.textMuted },
+  inspectBtn: { fontSize: 12, fontWeight: "700", color: colors.primary },
   muted: { color: colors.textMuted, fontSize: 13 },
   error: { color: colors.danger, fontSize: 13 },
 });

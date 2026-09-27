@@ -14,11 +14,8 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ApiError } from "../../lib/api";
 import { useAuth } from "../../lib/auth-context";
-import { colors, radius, spacing } from "../../lib/theme";
+import { colors, radius, shadows, spacing } from "../../lib/theme";
 
-// 6-digit OTP entry. We render six individual cells so the focus animation and
-// auto-advance behavior feels right on phones, but internally we still store a
-// single 6-char string for the API call.
 export default function VerifyOtpScreen() {
   const { verifyOtp, resendOtp } = useAuth();
   const router = useRouter();
@@ -35,8 +32,6 @@ export default function VerifyOtpScreen() {
   const refs = useRef<Array<TextInput | null>>([null, null, null, null, null, null]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // Resend state: countdown starts at 60s after register, ticks down. When 0,
-  // the resend button is tappable. After a successful resend, it restarts.
   const [resendCountdown, setResendCountdown] = useState(60);
   const [resending, setResending] = useState(false);
   const [resendMessage, setResendMessage] = useState<string | null>(null);
@@ -59,10 +54,9 @@ export default function VerifyOtpScreen() {
         setDevOtp(res.devOtp);
         setDigits(res.devOtp.split(""));
       }
-      setResendMessage("New code sent. Check your messages.");
+      setResendMessage("New verification code sent.");
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Could not resend.";
-      // If the server reports a cooldown we don't know about, reset to a safe value.
       if (msg.toLowerCase().includes("wait")) {
         setResendCountdown(60);
       }
@@ -73,7 +67,6 @@ export default function VerifyOtpScreen() {
   }
 
   function setDigit(index: number, raw: string) {
-    // Accept paste of the whole code into the first cell.
     if (raw.length > 1) {
       const cleaned = raw.replace(/\D/g, "").slice(0, 6).split("");
       const next = ["", "", "", "", "", ""];
@@ -112,14 +105,12 @@ export default function VerifyOtpScreen() {
     setSubmitting(true);
     try {
       await verifyOtp({ userId, code });
-      // verifyOtp signs the user in; the root navigation gate will redirect
-      // to /(patient). No explicit push needed.
     } catch (e) {
       if (e instanceof ApiError && (e.code === "otp_invalid" || e.code === "otp_expired")) {
         setError(
           e.code === "otp_expired"
-            ? "That code has expired. Restart sign-up to get a fresh code."
-            : "That code didn't match. Try again.",
+            ? "That code has expired. Request a new code."
+            : "Invalid code. Please double-check and try again.",
         );
       } else if (e instanceof ApiError) {
         setError(e.message);
@@ -137,18 +128,33 @@ export default function VerifyOtpScreen() {
     <SafeAreaView style={styles.safe}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+          {/* Header */}
           <View style={styles.brand}>
-            <Text style={styles.title}>Verify your number</Text>
+            <View style={styles.iconCircle}>
+              <Text style={styles.iconEmoji}>🔐</Text>
+            </View>
+            <Text style={styles.title}>2-Step Verification</Text>
             <Text style={styles.subtitle}>
-              We texted a 6-digit code{phone ? ` to ${phone}` : ""}. Enter it below to activate your account.
+              We sent a 6-digit cryptographic verification code to{"\n"}
+              <Text style={styles.phoneHighlight}>{phone ?? "your phone"}</Text>
             </Text>
+
             {devOtp ? (
-              <Text style={{ marginTop: spacing.xs, color: colors.primary, fontSize: 13, fontWeight: "600" }}>
-                Dev verification code: {devOtp}
-              </Text>
+              <Pressable
+                onPress={() => {
+                  setDigits(devOtp.split(""));
+                  void onSubmit(devOtp);
+                }}
+                style={styles.devOtpPill}
+              >
+                <Text style={styles.devOtpLabel}>DEV SHORTCUT: </Text>
+                <Text style={styles.devOtpCode}>{devOtp}</Text>
+                <Text style={styles.devOtpAction}> (Tap to Auto-fill)</Text>
+              </Pressable>
             ) : null}
           </View>
 
+          {/* Card */}
           <View style={styles.card}>
             <View style={styles.cells}>
               {digits.map((d, i) => (
@@ -172,34 +178,52 @@ export default function VerifyOtpScreen() {
               ))}
             </View>
 
-            {error ? <Text style={styles.error}>{error}</Text> : null}
+            {error ? (
+              <View style={styles.errorBox}>
+                <Text style={styles.errorText}>⚠️ {error}</Text>
+              </View>
+            ) : null}
 
             {submitting ? (
               <View style={styles.spinner}>
                 <ActivityIndicator color={colors.primary} />
-                <Text style={styles.spinnerText}>Verifying…</Text>
+                <Text style={styles.spinnerText}>Verifying authentication token…</Text>
               </View>
-            ) : null}
+            ) : (
+              <Pressable
+                onPress={() => onSubmit(digits.join(""))}
+                disabled={digits.some((d) => !d) || submitting}
+                style={({ pressed }) => [
+                  styles.verifyBtn,
+                  digits.every((d) => d) ? styles.verifyBtnActive : null,
+                  pressed && { opacity: 0.88 },
+                ]}
+              >
+                <Text style={styles.verifyBtnText}>Confirm Code</Text>
+              </Pressable>
+            )}
 
             {resendMessage ? <Text style={styles.success}>{resendMessage}</Text> : null}
 
-            <Pressable
-              onPress={onResend}
-              disabled={resendCountdown > 0 || resending || submitting}
-              style={({ pressed }) => [pressed && resendCountdown === 0 && { opacity: 0.85 }]}
-            >
-              <Text style={[styles.link, (resendCountdown > 0 || resending) && styles.linkDisabled]}>
-                {resending
-                  ? "Resending…"
-                  : resendCountdown > 0
+            <View style={styles.resendSection}>
+              <Pressable
+                onPress={onResend}
+                disabled={resendCountdown > 0 || resending || submitting}
+                style={({ pressed }) => [pressed && resendCountdown === 0 && { opacity: 0.85 }]}
+              >
+                <Text style={[styles.link, (resendCountdown > 0 || resending) && styles.linkDisabled]}>
+                  {resending
+                    ? "Sending new code…"
+                    : resendCountdown > 0
                     ? `Resend code in ${resendCountdown}s`
-                    : "Resend code"}
-              </Text>
-            </Pressable>
+                    : "Resend verification code"}
+                </Text>
+              </Pressable>
 
-            <Pressable onPress={() => router.replace("/(auth)/register")} disabled={submitting}>
-              <Text style={styles.linkSubtle}>Use a different number</Text>
-            </Pressable>
+              <Pressable onPress={() => router.replace("/(auth)/register")} disabled={submitting}>
+                <Text style={styles.linkSubtle}>Use a different phone number</Text>
+              </Pressable>
+            </View>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -211,40 +235,116 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
   scroll: { flexGrow: 1, justifyContent: "center", padding: spacing.xl },
   brand: { alignItems: "center", marginBottom: spacing.xl },
-  title: { fontSize: 24, fontWeight: "700", color: colors.text },
+  iconCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: radius.full,
+    backgroundColor: colors.surface,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginBottom: spacing.md,
+    ...shadows.sm,
+  },
+  iconEmoji: { fontSize: 28 },
+  title: { fontSize: 24, fontWeight: "800", color: colors.text, letterSpacing: -0.4 },
   subtitle: {
     marginTop: spacing.sm,
     color: colors.textMuted,
     textAlign: "center",
     paddingHorizontal: spacing.md,
     fontSize: 13,
+    lineHeight: 18,
   },
+  phoneHighlight: {
+    color: colors.text,
+    fontWeight: "700",
+  },
+  devOtpPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: colors.primaryLight,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs + 2,
+    borderRadius: radius.full,
+    marginTop: spacing.md,
+  },
+  devOtpLabel: { color: colors.primaryDark, fontSize: 11, fontWeight: "700" },
+  devOtpCode: { color: colors.primaryDark, fontSize: 12, fontWeight: "800", letterSpacing: 1 },
+  devOtpAction: { color: colors.primary, fontSize: 11, fontWeight: "600" },
   card: {
     backgroundColor: colors.surface,
-    borderRadius: radius.lg,
+    borderRadius: radius.xl,
     padding: spacing.xl,
     borderWidth: 1,
     borderColor: colors.border,
+    ...shadows.md,
   },
   cells: { flexDirection: "row", justifyContent: "space-between", marginBottom: spacing.md },
   cell: {
-    width: 44,
+    width: 46,
     height: 56,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: colors.border,
-    borderRadius: radius.md,
+    borderRadius: radius.lg,
     textAlign: "center",
     fontSize: 22,
-    fontWeight: "700",
+    fontWeight: "800",
     color: colors.text,
     backgroundColor: colors.background,
+    ...shadows.sm,
   },
   cellFilled: { borderColor: colors.primary, backgroundColor: colors.surface },
-  error: { color: colors.danger, fontSize: 13, marginTop: spacing.sm, textAlign: "center" },
-  spinner: { flexDirection: "row", alignItems: "center", justifyContent: "center", marginTop: spacing.md, gap: spacing.sm },
-  spinnerText: { color: colors.text, fontSize: 13 },
-  link: { color: colors.primary, fontWeight: "600", textAlign: "center", marginTop: spacing.lg, fontSize: 13 },
-  linkSubtle: { color: colors.textMuted, textAlign: "center", marginTop: spacing.md, fontSize: 12 },
-  linkDisabled: { color: colors.textMuted },
-  success: { color: colors.success, fontSize: 13, marginTop: spacing.sm, textAlign: "center" },
+  errorBox: {
+    backgroundColor: colors.dangerLight,
+    borderWidth: 1,
+    borderColor: "#FECACA",
+    padding: spacing.sm + 2,
+    borderRadius: radius.md,
+    marginTop: spacing.sm,
+  },
+  errorText: { color: colors.danger, fontSize: 12, fontWeight: "600", textAlign: "center" },
+  spinner: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: spacing.lg,
+    gap: spacing.sm,
+  },
+  spinnerText: { color: colors.textMuted, fontSize: 13, fontWeight: "500" },
+  verifyBtn: {
+    marginTop: spacing.lg,
+    backgroundColor: colors.borderLight,
+    borderRadius: radius.lg,
+    paddingVertical: spacing.md,
+    alignItems: "center",
+  },
+  verifyBtnActive: {
+    backgroundColor: colors.primary,
+    ...shadows.sm,
+  },
+  verifyBtnText: {
+    color: colors.primaryText,
+    fontSize: 15,
+    fontWeight: "700",
+  },
+  resendSection: {
+    marginTop: spacing.lg,
+    alignItems: "center",
+    gap: spacing.sm,
+  },
+  link: { color: colors.primary, fontWeight: "700", textAlign: "center", fontSize: 13 },
+  linkSubtle: { color: colors.textMuted, textAlign: "center", fontSize: 12 },
+  linkDisabled: { color: colors.textMuted, fontWeight: "500" },
+  success: {
+    color: colors.success,
+    fontSize: 13,
+    marginTop: spacing.md,
+    textAlign: "center",
+    fontWeight: "600",
+  },
 });
+

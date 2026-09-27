@@ -14,7 +14,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ApiError } from "../../lib/api";
 import { useAuth } from "../../lib/auth-context";
-import { colors, radius, spacing } from "../../lib/theme";
+import { colors, radius, shadows, spacing } from "../../lib/theme";
 
 type RoleType = "PATIENT" | "DOCTOR" | "CAREGIVER";
 
@@ -34,7 +34,7 @@ export default function RegisterScreen() {
   const [error, setError] = useState<string | null>(null);
 
   function validate(): string | null {
-    if (!fullName.trim()) return "Enter your full name";
+    if (!fullName.trim()) return "Enter your full legal name";
     if (role === "PATIENT") {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(dateOfBirth.trim())) {
         return "Date of birth must be YYYY-MM-DD (e.g. 2000-01-01)";
@@ -85,45 +85,59 @@ export default function RegisterScreen() {
     <SafeAreaView style={styles.safe}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+          {/* Brand Header */}
           <View style={styles.brand}>
+            <View style={styles.logoBadge}>
+              <Text style={styles.logoIcon}>🩺</Text>
+            </View>
             <Text style={styles.brandTitle}>MediVault</Text>
-            <Text style={styles.brandTagline}>
-              {role === "DOCTOR"
-                ? "AI-powered clinical workspace & patient record access."
-                : role === "CAREGIVER"
-                ? "Manage and safeguard health records for your family."
-                : "Your complete health records & AI clinical insights in your vault."}
-            </Text>
+            <Text style={styles.brandSubtitle}>INTELLIGENT HEALTHCARE RECORDS</Text>
           </View>
 
+          {/* Registration Card */}
           <View style={styles.card}>
-            <Text style={styles.roleLabel}>I am registering as a:</Text>
-            <View style={styles.roleSelector}>
-              {(["PATIENT", "DOCTOR", "CAREGIVER"] as RoleType[]).map((r) => {
-                const isSelected = role === r;
-                const label = r === "PATIENT" ? "Patient" : r === "DOCTOR" ? "Doctor" : "Caregiver";
+            <Text style={styles.cardHeading}>Create your account</Text>
+            <Text style={styles.cardSub}>Select your role to configure your portal</Text>
+
+            {/* Role Switcher */}
+            <View style={styles.roleGrid}>
+              {(
+                [
+                  { id: "PATIENT", label: "Patient", icon: "👤", desc: "Personal Vault" },
+                  { id: "DOCTOR", label: "Doctor", icon: "🩺", desc: "Clinical EHR" },
+                  { id: "CAREGIVER", label: "Caregiver", icon: "🤝", desc: "Family Proxy" },
+                ] as const
+              ).map((item) => {
+                const isSelected = role === item.id;
                 return (
                   <Pressable
-                    key={r}
+                    key={item.id}
                     onPress={() => {
-                      setRole(r);
+                      setRole(item.id);
                       setError(null);
                     }}
-                    style={[styles.roleTab, isSelected && styles.roleTabActive]}
+                    style={[styles.roleOption, isSelected && styles.roleOptionActive]}
                   >
-                    <Text style={[styles.roleTabText, isSelected && styles.roleTabTextActive]}>{label}</Text>
+                    <Text style={styles.roleIcon}>{item.icon}</Text>
+                    <Text style={[styles.roleOptionLabel, isSelected && styles.roleOptionLabelActive]}>
+                      {item.label}
+                    </Text>
+                    <Text style={[styles.roleOptionDesc, isSelected && styles.roleOptionDescActive]}>
+                      {item.desc}
+                    </Text>
                   </Pressable>
                 );
               })}
             </View>
 
-            <Field label={role === "DOCTOR" ? "Full Name & Title (e.g. Dr. Sarah Connor)" : "Full Name"}>
+            {/* Form Fields */}
+            <Field label={role === "DOCTOR" ? "Full Name & Degree (e.g. Dr. Sarah Connor, MD)" : "Full Legal Name"}>
               <TextInput
                 value={fullName}
                 onChangeText={setFullName}
                 autoCapitalize="words"
                 autoCorrect={false}
-                placeholder={role === "DOCTOR" ? "Dr. Sarah Connor, MD" : "Alice Patient"}
+                placeholder={role === "DOCTOR" ? "Dr. Sarah Connor, MD" : "Alice Johnson"}
                 placeholderTextColor={colors.textMuted}
                 style={styles.input}
                 editable={!submitting}
@@ -131,7 +145,7 @@ export default function RegisterScreen() {
             </Field>
 
             {role === "PATIENT" ? (
-              <Field label="Date of birth (YYYY-MM-DD)">
+              <Field label="Date of Birth (YYYY-MM-DD)">
                 <TextInput
                   value={dateOfBirth}
                   onChangeText={setDateOfBirth}
@@ -175,21 +189,21 @@ export default function RegisterScreen() {
               </>
             ) : null}
 
-            <Field label="Email address">
+            <Field label="Email Address">
               <TextInput
                 value={email}
                 onChangeText={setEmail}
                 autoCapitalize="none"
                 autoCorrect={false}
                 keyboardType="email-address"
-                placeholder={role === "DOCTOR" ? "dr.connor@hospital.org" : "you@example.com"}
+                placeholder={role === "DOCTOR" ? "dr.connor@hospital.org" : "alice@example.com"}
                 placeholderTextColor={colors.textMuted}
                 style={styles.input}
                 editable={!submitting}
               />
             </Field>
 
-            <Field label="Phone (E.164 with country code)">
+            <Field label="Phone Number (E.164 format with country code)">
               <TextInput
                 value={phone}
                 onChangeText={setPhone}
@@ -201,7 +215,7 @@ export default function RegisterScreen() {
                 style={styles.input}
                 editable={!submitting}
               />
-              <Text style={styles.hint}>We&apos;ll send a 6-digit verification code to this phone number.</Text>
+              <Text style={styles.hint}>A 6-digit SMS code will be sent for instant 2-step verification.</Text>
             </Field>
 
             <Field label="Password">
@@ -216,14 +230,19 @@ export default function RegisterScreen() {
               />
             </Field>
 
-            {error ? <Text style={styles.error}>{error}</Text> : null}
+            {error ? (
+              <View style={styles.errorBox}>
+                <Text style={styles.errorIcon}>⚠️</Text>
+                <Text style={styles.errorText}>{error}</Text>
+              </View>
+            ) : null}
 
             <Pressable
               onPress={onSubmit}
               disabled={submitting}
               style={({ pressed }) => [
                 styles.button,
-                pressed && !submitting && { opacity: 0.85 },
+                pressed && !submitting && { opacity: 0.88 },
                 submitting && { opacity: 0.6 },
               ]}
             >
@@ -231,7 +250,11 @@ export default function RegisterScreen() {
                 <ActivityIndicator color={colors.primaryText} />
               ) : (
                 <Text style={styles.buttonText}>
-                  {role === "DOCTOR" ? "Register Doctor Account" : role === "CAREGIVER" ? "Register Caregiver Account" : "Create Vault Account"}
+                  {role === "DOCTOR"
+                    ? "Register Clinical Account"
+                    : role === "CAREGIVER"
+                    ? "Register Caregiver Account"
+                    : "Create Patient Vault"}
                 </Text>
               )}
             </Pressable>
@@ -244,10 +267,14 @@ export default function RegisterScreen() {
             </Text>
           </View>
 
-          <Text style={styles.legal}>
-            By creating an account you agree to MediVault&apos;s Terms and Privacy Policy. AI-extracted content is
-            clinical decision support — always verify with original diagnostic records.
-          </Text>
+          {/* Privacy Disclaimer */}
+          <View style={styles.trustBanner}>
+            <Text style={styles.trustEmoji}>🔒</Text>
+            <Text style={styles.trustText}>
+              256-Bit Cryptographic Vault & Zero-Trust Access Control. AI-extracted records provide clinical decision
+              support.
+            </Text>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -265,78 +292,114 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
-  scroll: { flexGrow: 1, justifyContent: "center", padding: spacing.xl },
+  scroll: { flexGrow: 1, justifyContent: "center", padding: spacing.xl, paddingBottom: spacing.xxl },
   brand: { alignItems: "center", marginBottom: spacing.xl },
-  brandTitle: { fontSize: 28, fontWeight: "700", color: colors.primary },
-  brandTagline: {
-    marginTop: spacing.sm,
-    color: colors.textMuted,
-    textAlign: "center",
-    paddingHorizontal: spacing.md,
-    fontSize: 13,
-  },
-  card: {
+  logoBadge: {
+    width: 60,
+    height: 60,
+    borderRadius: radius.xl,
     backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: spacing.xl,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  roleLabel: { color: colors.text, fontSize: 13, fontWeight: "600", marginBottom: spacing.xs },
-  roleSelector: {
-    flexDirection: "row",
-    backgroundColor: colors.background,
-    borderRadius: radius.md,
-    padding: 4,
+    alignItems: "center",
+    justifyContent: "center",
     borderWidth: 1,
     borderColor: colors.border,
     marginBottom: spacing.sm,
+    ...shadows.sm,
   },
-  roleTab: {
+  logoIcon: { fontSize: 30 },
+  brandTitle: { fontSize: 26, fontWeight: "800", color: colors.text, letterSpacing: -0.5 },
+  brandSubtitle: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: colors.primary,
+    letterSpacing: 1.2,
+    marginTop: 2,
+  },
+  card: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.xl,
+    padding: spacing.xl,
+    borderWidth: 1,
+    borderColor: colors.border,
+    ...shadows.md,
+  },
+  cardHeading: { fontSize: 20, fontWeight: "800", color: colors.text, letterSpacing: -0.3 },
+  cardSub: { fontSize: 13, color: colors.textMuted, marginTop: 2, marginBottom: spacing.md },
+  roleGrid: {
+    flexDirection: "row",
+    gap: spacing.xs,
+    marginBottom: spacing.sm,
+  },
+  roleOption: {
     flex: 1,
-    paddingVertical: spacing.sm + 2,
     alignItems: "center",
-    borderRadius: radius.sm,
+    paddingVertical: spacing.md - 2,
+    paddingHorizontal: 4,
+    borderRadius: radius.lg,
+    backgroundColor: colors.surfaceSecondary,
+    borderWidth: 1.5,
+    borderColor: colors.border,
   },
-  roleTabActive: {
-    backgroundColor: colors.primary,
+  roleOptionActive: {
+    backgroundColor: colors.primaryLight,
+    borderColor: colors.primary,
   },
-  roleTabText: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: colors.textMuted,
-  },
-  roleTabTextActive: {
-    color: colors.primaryText,
-  },
-  label: { color: colors.text, fontSize: 13, fontWeight: "600", marginBottom: spacing.xs },
+  roleIcon: { fontSize: 20, marginBottom: 2 },
+  roleOptionLabel: { fontSize: 12, fontWeight: "700", color: colors.textMuted },
+  roleOptionLabelActive: { color: colors.primaryDark },
+  roleOptionDesc: { fontSize: 9, color: colors.textMuted, marginTop: 1, textAlign: "center" },
+  roleOptionDescActive: { color: colors.primary, fontWeight: "600" },
+  label: { color: colors.text, fontSize: 12, fontWeight: "700", marginBottom: 6 },
   input: {
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: radius.md,
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-    fontSize: 16,
+    paddingVertical: spacing.md - 2,
+    fontSize: 15,
     color: colors.text,
     backgroundColor: colors.background,
   },
-  hint: { color: colors.textMuted, fontSize: 11, marginTop: spacing.xs },
+  hint: { color: colors.textMuted, fontSize: 11, marginTop: 4 },
+  errorBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: colors.dangerLight,
+    borderWidth: 1,
+    borderColor: "#FECACA",
+    padding: spacing.md,
+    borderRadius: radius.md,
+    marginTop: spacing.md,
+    gap: spacing.sm,
+  },
+  errorIcon: { fontSize: 16 },
+  errorText: { color: colors.danger, fontSize: 12, fontWeight: "600", flex: 1 },
   button: {
     marginTop: spacing.xl,
     backgroundColor: colors.primary,
-    borderRadius: radius.md,
+    borderRadius: radius.lg,
     paddingVertical: spacing.md + 2,
     alignItems: "center",
+    ...shadows.sm,
   },
-  buttonText: { color: colors.primaryText, fontWeight: "600", fontSize: 16 },
+  buttonText: { color: colors.primaryText, fontWeight: "700", fontSize: 16 },
   footer: { marginTop: spacing.lg, color: colors.textMuted, textAlign: "center", fontSize: 13 },
-  link: { color: colors.primary, fontWeight: "600" },
-  legal: {
-    marginTop: spacing.lg,
+  link: { color: colors.primary, fontWeight: "700" },
+  trustBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: spacing.xl,
+    paddingHorizontal: spacing.md,
+    gap: spacing.sm,
+    justifyContent: "center",
+  },
+  trustEmoji: { fontSize: 16 },
+  trustText: {
     color: colors.textMuted,
     fontSize: 11,
+    lineHeight: 16,
+    flex: 1,
     textAlign: "center",
-    paddingHorizontal: spacing.md,
   },
-  error: { marginTop: spacing.md, color: colors.danger, fontSize: 13 },
 });
+
