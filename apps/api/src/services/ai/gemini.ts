@@ -26,8 +26,10 @@ class GeminiProvider implements AIProvider {
       contents,
       config: {
         systemInstruction: input.systemPrompt,
-        ...(input.maxTokens !== undefined ? { maxOutputTokens: input.maxTokens } : {}),
+        maxOutputTokens: Math.max(input.maxTokens ?? 8192, 8192),
         ...(input.temperature !== undefined ? { temperature: input.temperature } : {}),
+        ...(input.jsonMode ? { responseMimeType: "application/json" } : {}),
+        thinkingConfig: { thinkingBudget: 0 } as any,
       },
     });
 

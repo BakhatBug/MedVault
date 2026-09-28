@@ -16,30 +16,56 @@ import type { ExtractionResult } from "@medivault/shared";
 // ──────────────────────────────────────────────────────────────────────────────
 
 const EXTRACTION_SYSTEM_PROMPT = `
-You are a clinical data extractor for MediVault. Read the supplied medical document and output ONLY a JSON object — no prose, no markdown fences, no explanation.
+You are an expert clinical data extractor for MediVault. Analyze the supplied medical document (prescription, lab report, clinic note, discharge summary, or photo) and output ONLY a JSON object.
 
-The JSON must be a FHIR R4 Bundle of type "collection" with this exact shape:
-
+The JSON must be a FHIR R4 Bundle of type "collection" with this exact structure:
 {
   "resourceType": "Bundle",
   "type": "collection",
   "entry": [
-    { "resource": { "resourceType": "<Type>", ... } }
+    {
+      "resource": {
+        "resourceType": "Condition",
+        "code": { "text": "<Diagnosis / Finding / Symptom>" },
+        "clinicalStatus": { "text": "active" }
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "MedicationRequest",
+        "status": "active",
+        "intent": "order",
+        "medicationCodeableConcept": { "text": "<Medication Name>" },
+        "dosageInstruction": [{ "text": "<Dosage, frequency, or directions (e.g. 500mg BID)>" }]
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Observation",
+        "code": { "text": "<Lab Test / Vital Sign / Measurement>" },
+        "valueString": "<Reading and Unit (e.g. 120/80 mmHg, 5.7 %, 98 mg/dL)>"
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "AllergyIntolerance",
+        "code": { "text": "<Allergen / Substance>" }
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Immunization",
+        "vaccineCode": { "text": "<Vaccine Name>" }
+      }
+    }
   ]
 }
 
 Allowed entry resourceType values: AllergyIntolerance, Condition, MedicationRequest, Observation, Immunization.
-
-Rules:
-- Never invent data. If a field is not in the document, omit it. Do not guess units or dosages.
-- Use ISO-8601 for dates ("2026-04-12" or "2026-04-12T14:30:00Z").
-- For medications, prefer "medicationCodeableConcept" with a "text" field of the medication name as written in the document. Do not fabricate RxNorm or SNOMED codes.
-- For lab results, use Observation with "valueQuantity" when the value has a numeric reading and unit; otherwise "valueString".
-- For allergies, use AllergyIntolerance with the substance in "code.text".
-- For diagnoses / chronic conditions, use Condition with the diagnosis in "code.text".
-- If the document is unreadable, contains no extractable clinical data, or is not a medical document, return {"resourceType":"Bundle","type":"collection","entry":[]}.
-
-Output JSON only.
+Important:
+- Only output clinical entities in entry (Condition, MedicationRequest, Observation, AllergyIntolerance, Immunization). Do NOT emit Patient, Practitioner, Organization, or Encounter entries.
+- Extract EVERY medication, diagnosis, symptom, test result, and allergy mentioned in the document.
+- If the document is unreadable or contains no extractable clinical data, return: {"resourceType":"Bundle","type":"collection","entry":[]}.
 `.trim();
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -68,8 +94,9 @@ export async function extractRecord(args: {
     modelId: config.AI_MODEL_EXTRACTION,
     systemPrompt: EXTRACTION_SYSTEM_PROMPT,
     userContent: [block],
-    maxTokens: 4096,
+    maxTokens: 8192,
     temperature: 0.1,
+    jsonMode: true,
   });
 
   const bundle = parseFhirBundle(result.text, args.recordId, result.modelId);
@@ -192,7 +219,7 @@ function stripJsonFences(text: string): string {
   // '{' to last '}' so JSON.parse has a chance.
   const first = s.indexOf("{");
   const last = s.lastIndexOf("}");
-  if (first > 0 && last > first) s = s.slice(first, last + 1);
+  if (first >= 0 && last > first) s = s.slice(first, last + 1);
   return s.trim();
 }
 

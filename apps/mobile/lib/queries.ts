@@ -526,3 +526,19 @@ export function useSearchPatients(query: string) {
   });
 }
 
+export function useReprocessRecord() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (recordId: string) =>
+      api<{ status: string; recordId: string }>(`/records/${recordId}/reprocess`, {
+        method: "POST",
+      }),
+    onSuccess: (_data, recordId) => {
+      qc.invalidateQueries({ queryKey: ["records"] });
+      qc.invalidateQueries({ queryKey: ["records", recordId] });
+      qc.invalidateQueries({ queryKey: ["timeline"] });
+      qc.invalidateQueries({ queryKey: ["medications"] });
+    },
+  });
+}
+

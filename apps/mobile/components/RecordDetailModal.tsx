@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   ActivityIndicator,
   Linking,
@@ -9,7 +10,7 @@ import {
   Text,
   View,
 } from "react-native";
-import { type RecordDetail } from "../lib/queries";
+import { type RecordDetail, useReprocessRecord } from "../lib/queries";
 import { colors, radius, shadows, spacing } from "../lib/theme";
 
 type Props = {
@@ -29,6 +30,21 @@ export function RecordDetailModal({
   viewUrl,
   loadingViewUrl = false,
 }: Props) {
+  const reprocess = useReprocessRecord();
+  const [reprocessing, setReprocessing] = useState(false);
+
+  const handleReprocess = async () => {
+    if (!record?.id) return;
+    setReprocessing(true);
+    try {
+      await reprocess.mutateAsync(record.id);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setTimeout(() => setReprocessing(false), 2500);
+    }
+  };
+
   if (!visible) return null;
 
   const fhirEntries = record?.extractedFhir?.entry ?? [];
@@ -194,19 +210,43 @@ export function RecordDetailModal({
               {/* AI Extraction Section */}
               <View style={styles.aiCard}>
                 <View style={styles.aiCardHeader}>
-                  <View style={styles.aiTitleRow}>
-                    <Text style={{ fontSize: 16 }}>✨</Text>
-                    <Text style={styles.aiCardTitle}>AI Extracted Clinical Entities</Text>
+                  <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                    <View style={styles.aiTitleRow}>
+                      <Text style={{ fontSize: 16 }}>✨</Text>
+                      <Text style={styles.aiCardTitle}>AI Extracted Clinical Entities</Text>
+                    </View>
+                    <Pressable
+                      onPress={handleReprocess}
+                      disabled={reprocessing || reprocess.isPending}
+                      style={({ pressed }) => [styles.reprocessBtn, pressed && { opacity: 0.7 }]}
+                    >
+                      <Text style={styles.reprocessBtnText}>
+                        {reprocessing || reprocess.isPending ? "⚡ Reprocessing…" : "⚡ Re-analyze"}
+                      </Text>
+                    </Pressable>
                   </View>
                   <Text style={styles.aiCardSub}>Parsed into structured FHIR R4 clinical resources</Text>
                 </View>
 
                 {!hasEntities ? (
-                  <Text style={styles.emptyText}>
-                    {record?.aiStatus === "COMPLETED"
-                      ? "No discrete entities (medications, conditions, observations) were detected in this document."
-                      : "AI extraction is analyzing this file in the background. Refresh in a few seconds."}
-                  </Text>
+                  <View style={{ alignItems: "center", paddingVertical: spacing.sm }}>
+                    <Text style={styles.emptyText}>
+                      {record?.aiStatus === "COMPLETED"
+                        ? "No discrete entities (medications, conditions, observations) were detected in this document."
+                        : "AI extraction is analyzing this file in the background. Refresh in a few seconds."}
+                    </Text>
+                    {record?.aiStatus === "COMPLETED" ? (
+                      <Pressable
+                        onPress={handleReprocess}
+                        disabled={reprocessing || reprocess.isPending}
+                        style={({ pressed }) => [styles.retryAiBtn, pressed && { opacity: 0.85 }]}
+                      >
+                        <Text style={styles.retryAiBtnText}>
+                          {reprocessing || reprocess.isPending ? "Analyzing document with AI…" : "🔄 Re-run AI Extraction"}
+                        </Text>
+                      </Pressable>
+                    ) : null}
+                  </View>
                 ) : null}
 
                 {/* Diagnoses & Conditions */}
@@ -487,4 +527,30 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   doneBtnText: { color: colors.text, fontWeight: "700", fontSize: 14 },
+  reprocessBtn: {
+    backgroundColor: colors.aiLight,
+    paddingHorizontal: spacing.sm + 4,
+    paddingVertical: 4,
+    borderRadius: radius.full,
+    borderWidth: 1,
+    borderColor: colors.aiBorder,
+  },
+  reprocessBtnText: {
+    color: colors.aiDark,
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  retryAiBtn: {
+    marginTop: spacing.sm,
+    backgroundColor: colors.primary,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm + 2,
+    borderRadius: radius.md,
+    ...shadows.sm,
+  },
+  retryAiBtnText: {
+    color: colors.primaryText,
+    fontWeight: "700",
+    fontSize: 13,
+  },
 });

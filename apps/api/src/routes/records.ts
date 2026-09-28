@@ -1,6 +1,8 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
 import { allowedMimeTypes, fileSizeBytes, recordCategory } from "@medivault/shared";
+import { prisma } from "../lib/prisma.js";
+import { extractionQueue } from "../queues/extraction.js";
 import * as recordsService from "../services/records.js";
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -96,6 +98,26 @@ export async function recordsRoutes(app: FastifyInstance): Promise<void> {
     try {
       const result = await recordsService.viewUrlForUser({ userId: req.user!.id, recordId: params.id }, ctx(req));
       return reply.send(result);
+    } catch (err) {
+      return handleError(err, reply);
+    }
+  });
+
+  app.post("/records/:id/reprocess", { preHandler: [app.requireAuth, app.requireRole("PATIENT")] }, async (req, reply) => {
+    const params = RecordIdParams.parse(req.params);
+    try {
+      const record = await prisma.medicalRecord.findUnique({
+        where: { id: params.id, patient: { userId: req.user!.id } },
+        select: { id: true },
+      });
+      if (!record) return reply.code(404).send({ error: "record_not_found" });
+
+      await prisma.medicalRecord.update({
+        where: { id: record.id },
+        data: { aiStatus: "PENDING" },
+      });
+      await extractionQueue.add("extract", { recordId: record.id });
+      return reply.send({ status: "queued", recordId: record.id });
     } catch (err) {
       return handleError(err, reply);
     }

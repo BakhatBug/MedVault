@@ -17,6 +17,7 @@ export interface AICallInput {
   userContent: AIContentBlock[];
   maxTokens?: number;
   temperature?: number;
+  jsonMode?: boolean;
 }
 
 export type AIContentBlock =

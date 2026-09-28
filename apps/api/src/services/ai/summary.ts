@@ -89,8 +89,9 @@ export async function generateOrGetSummary(args: {
       modelId: config.AI_MODEL_SUMMARY,
       systemPrompt: SUMMARY_SYSTEM_PROMPT,
       userContent: [{ type: "text", text: buildContextPayload(ctx) }],
-      maxTokens: 2048,
+      maxTokens: 8192,
       temperature: 0.2,
+      jsonMode: true,
     };
     const res = await provider.call(aiInput);
     outcome = { provider: res.provider, modelId: res.modelId, inputTokens: res.inputTokens, outputTokens: res.outputTokens };

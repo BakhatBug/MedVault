@@ -129,8 +129,9 @@ export async function refreshInteractions(args: {
       modelId: config.AI_MODEL_QA,
       systemPrompt: SYSTEM_PROMPT,
       userContent: [{ type: "text", text: JSON.stringify({ medications: meds }, null, 2) }],
-      maxTokens: 1024,
+      maxTokens: 8192,
       temperature: 0.1,
+      jsonMode: true,
     });
     outcome = { provider: res.provider, modelId: res.modelId, inputTokens: res.inputTokens, outputTokens: res.outputTokens };
 
