@@ -464,3 +464,65 @@ export function useUpdateEmergencyDisclosure() {
     },
   });
 }
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Patient-side AI Assistant & Health Summary
+export type SummaryFlag = {
+  kind: "drug_interaction" | "lab_trend" | "missed_followup" | "allergy_conflict" | "other";
+  severity: "low" | "moderate" | "high";
+  text: string;
+};
+
+export function useMyHealthSummary(opts?: { refresh?: boolean }) {
+  return useQuery({
+    queryKey: ["me", "summary", opts?.refresh],
+    queryFn: () =>
+      api<{
+        id: string;
+        summaryText: string;
+        flags: SummaryFlag[];
+        modelId: string;
+        generatedAt: string;
+        cached: boolean;
+        disclaimer: string;
+      }>(`/me/summary${opts?.refresh ? "?refresh=true" : ""}`),
+  });
+}
+
+export function usePatientAskAi() {
+  return useMutation({
+    mutationFn: (input: { question: string }) =>
+      api<{
+        answer: string;
+        modelId: string;
+        generatedAt: string;
+        tokens: { input: number; output: number };
+        disclaimer: string;
+      }>("/me/ask", {
+        method: "POST",
+        body: { question: input.question },
+      }),
+  });
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Doctor-side Patient Search by Name or ID
+// ──────────────────────────────────────────────────────────────────────────────
+
+export type SearchPatientResult = {
+  patientCode: string;
+  fullName: string;
+  gender: string | null;
+  hasActiveAccess: boolean;
+  hasPendingAccess: boolean;
+};
+
+export function useSearchPatients(query: string) {
+  return useQuery({
+    queryKey: ["access", "search-patients", query],
+    queryFn: () =>
+      api<{ items: SearchPatientResult[] }>(`/access/search-patients?q=${encodeURIComponent(query)}`),
+    enabled: query.trim().length >= 1,
+  });
+}
+

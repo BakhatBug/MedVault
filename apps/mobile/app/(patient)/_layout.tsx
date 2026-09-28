@@ -58,22 +58,22 @@ export default function PatientLayout() {
         }}
       />
       <Tabs.Screen
+        name="ai"
+        options={{
+          title: "AI Assistant",
+          tabBarLabel: "AI Insights",
+          tabBarIcon: ({ color, focused }) => (
+            <Text style={{ fontSize: 18, opacity: focused ? 1 : 0.7 }}>🧠</Text>
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="medications"
         options={{
           title: "Medications",
           tabBarLabel: "Meds",
           tabBarIcon: ({ color, focused }) => (
             <Text style={{ fontSize: 18, opacity: focused ? 1 : 0.7 }}>💊</Text>
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="timeline"
-        options={{
-          title: "Health Timeline",
-          tabBarLabel: "Timeline",
-          tabBarIcon: ({ color, focused }) => (
-            <Text style={{ fontSize: 18, opacity: focused ? 1 : 0.7 }}>⏱️</Text>
           ),
         }}
       />
@@ -88,6 +88,7 @@ export default function PatientLayout() {
         }}
       />
       {/* Hidden detail screens */}
+      <Tabs.Screen name="timeline" options={{ href: null, title: "Health Timeline" }} />
       <Tabs.Screen name="upload" options={{ href: null, title: "Upload Record" }} />
       <Tabs.Screen name="emergency" options={{ href: null, title: "Emergency Card" }} />
       <Tabs.Screen name="access" options={{ href: null, title: "Doctor Access Permissions" }} />

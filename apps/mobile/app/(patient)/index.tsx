@@ -188,17 +188,23 @@ export default function HomeScreen() {
       ) : null}
 
       {/* AI Clinical Assistant Feature Banner */}
-      <View style={styles.aiInsightCard}>
+      <Pressable
+        onPress={() => router.push("/(patient)/ai" as any)}
+        style={({ pressed }) => [styles.aiInsightCard, pressed && { opacity: 0.92 }]}
+      >
         <View style={styles.aiHeader}>
-          <Text style={{ fontSize: 20 }}>✨</Text>
+          <Text style={{ fontSize: 24 }}>🧠</Text>
           <View style={{ flex: 1 }}>
-            <Text style={styles.aiTitle}>AI Clinical Engine Active</Text>
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+              <Text style={styles.aiTitle}>AI Health Assistant & Insights</Text>
+              <Text style={{ fontSize: 13, color: colors.aiDark, fontWeight: "700" }}>Open ›</Text>
+            </View>
             <Text style={styles.aiSub}>
-              Uploaded tests & prescriptions are automatically converted into structured FHIR records for your doctors.
+              Ask questions about your medical records, explain lab values, or view your AI health summary.
             </Text>
           </View>
         </View>
-      </View>
+      </Pressable>
 
       {/* Recent Uploads Section */}
       <View style={styles.sectionHeaderRow}>

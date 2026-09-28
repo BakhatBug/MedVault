@@ -16,7 +16,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ApiError } from "../../lib/api";
 import { useAuth } from "../../lib/auth-context";
-import { useOutgoingAccess, useRequestAccess } from "../../lib/queries";
+import { useOutgoingAccess, useRequestAccess, useSearchPatients } from "../../lib/queries";
 import { colors, radius, shadows, spacing } from "../../lib/theme";
 
 const PATIENT_CODE_REGEX = /^MVK-\d{4}-\d{5,}$/i;
@@ -33,6 +33,9 @@ export default function DoctorDashboard() {
 
   const docName = state.status === "signed-in" ? state.user.fullName ?? "Doctor" : "Doctor";
 
+  // Dynamic patient search
+  const searchResults = useSearchPatients(code);
+
   const activeGrants = useMemo(
     () => outgoing.data?.items.filter((p) => p.status === "APPROVED") ?? [],
     [outgoing.data],
@@ -44,16 +47,17 @@ export default function DoctorDashboard() {
   );
 
   const codeUpper = code.trim().toUpperCase();
-  const canSubmit = PATIENT_CODE_REGEX.test(codeUpper) && !submitting;
+  const canSubmit = codeUpper.length >= 2 && !submitting;
 
-  async function submitRequest() {
-    if (!canSubmit) return;
+  async function submitRequest(targetCode?: string) {
+    const codeToRequest = (targetCode ?? codeUpper).trim();
+    if (!codeToRequest) return;
     setSubmitting(true);
     try {
-      await request.mutateAsync({ patientCode: codeUpper, ...(note.trim() ? { note: note.trim() } : {}) });
+      await request.mutateAsync({ patientCode: codeToRequest, ...(note.trim() ? { note: note.trim() } : {}) });
       Alert.alert(
         "Access Request Sent",
-        `Access request submitted for ${codeUpper}. The patient will receive a notification to grant access.`,
+        `Access request submitted for ${codeToRequest}. The patient will receive a consent notification.`,
         [{ text: "OK" }],
       );
       setCode("");
@@ -101,26 +105,80 @@ export default function DoctorDashboard() {
             <View style={styles.cardHeaderRow}>
               <Text style={{ fontSize: 18 }}>🔍</Text>
               <View style={{ flex: 1 }}>
-                <Text style={styles.cardTitle}>Patient Record Lookup</Text>
+                <Text style={styles.cardTitle}>Patient Record Search & Lookup</Text>
                 <Text style={styles.cardSubtitle}>
-                  Enter the patient&apos;s unique MediVault ID (e.g. MVK-2026-00003) to request clinical access.
+                  Search patient by Name (e.g. Ahmad) or Patient ID (e.g. MVK-2026-00003).
                 </Text>
               </View>
             </View>
 
             <View style={{ marginTop: spacing.md }}>
-              <Text style={styles.inputLabel}>Patient ID</Text>
+              <Text style={styles.inputLabel}>Patient Name or ID</Text>
               <TextInput
                 value={code}
                 onChangeText={setCode}
-                autoCapitalize="characters"
+                autoCapitalize="none"
                 autoCorrect={false}
-                placeholder="MVK-2026-XXXXX"
+                placeholder="Search patient name or MVK-2026-XXXXX…"
                 placeholderTextColor={colors.textMuted}
                 style={styles.input}
                 editable={!submitting}
               />
             </View>
+
+            {/* Live Search Suggestions Dropdown */}
+            {code.trim().length >= 1 ? (
+              <View style={styles.searchDropdown}>
+                {searchResults.isLoading ? (
+                  <View style={styles.searchLoading}>
+                    <ActivityIndicator size="small" color={colors.primary} />
+                    <Text style={styles.searchLoadingText}>Searching patients…</Text>
+                  </View>
+                ) : (searchResults.data?.items.length ?? 0) === 0 ? (
+                  <View style={styles.searchEmpty}>
+                    <Text style={styles.searchEmptyText}>No matching registered patients found.</Text>
+                  </View>
+                ) : (
+                  searchResults.data!.items.map((pt) => (
+                    <View key={pt.patientCode} style={styles.searchResultRow}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.searchResultName}>{pt.fullName}</Text>
+                        <Text style={styles.searchResultCode}>{pt.patientCode}</Text>
+                      </View>
+
+                      {pt.hasActiveAccess ? (
+                        <Pressable
+                          onPress={() =>
+                            router.push({
+                              pathname: "/(doctor)/patient/[code]",
+                              params: { code: pt.patientCode },
+                            })
+                          }
+                          style={styles.openChartSmallBtn}
+                        >
+                          <Text style={styles.openChartSmallText}>Open Chart ›</Text>
+                        </Pressable>
+                      ) : pt.hasPendingAccess ? (
+                        <View style={styles.pendingBadgeSmall}>
+                          <Text style={styles.pendingBadgeText}>Pending Consent</Text>
+                        </View>
+                      ) : (
+                        <Pressable
+                          onPress={() => submitRequest(pt.patientCode)}
+                          disabled={submitting}
+                          style={({ pressed }) => [
+                            styles.requestAccessSmallBtn,
+                            pressed && { opacity: 0.85 },
+                          ]}
+                        >
+                          <Text style={styles.requestAccessSmallText}>Request Access</Text>
+                        </Pressable>
+                      )}
+                    </View>
+                  ))
+                )}
+              </View>
+            ) : null}
 
             <View style={{ marginTop: spacing.sm }}>
               <Text style={styles.inputLabel}>Clinical Reason (Optional)</Text>
@@ -136,21 +194,23 @@ export default function DoctorDashboard() {
               />
             </View>
 
-            <Pressable
-              onPress={submitRequest}
-              disabled={!canSubmit}
-              style={({ pressed }) => [
-                styles.submitBtn,
-                !canSubmit && { opacity: 0.5 },
-                pressed && canSubmit && { opacity: 0.85 },
-              ]}
-            >
-              {submitting ? (
-                <ActivityIndicator color={colors.primaryText} />
-              ) : (
-                <Text style={styles.submitBtnText}>Request Patient Access</Text>
-              )}
-            </Pressable>
+            {PATIENT_CODE_REGEX.test(codeUpper) ? (
+              <Pressable
+                onPress={() => submitRequest()}
+                disabled={!canSubmit}
+                style={({ pressed }) => [
+                  styles.submitBtn,
+                  !canSubmit && { opacity: 0.5 },
+                  pressed && canSubmit && { opacity: 0.85 },
+                ]}
+              >
+                {submitting ? (
+                  <ActivityIndicator color={colors.primaryText} />
+                ) : (
+                  <Text style={styles.submitBtnText}>Request Access for {codeUpper}</Text>
+                )}
+              </Pressable>
+            ) : null}
           </View>
 
           {/* Pending Requests Notice */}
@@ -359,6 +419,56 @@ const styles = StyleSheet.create({
   patientName: { color: colors.text, fontWeight: "700", fontSize: 15 },
   patientCode: { color: colors.primaryDark, fontSize: 12, marginTop: 2, fontWeight: "600" },
   patientMeta: { color: colors.textMuted, fontSize: 11, marginTop: 2 },
+  searchDropdown: {
+    backgroundColor: colors.backgroundAlt,
+    borderRadius: radius.lg,
+    marginTop: spacing.xs,
+    padding: spacing.xs,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  searchLoading: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: spacing.md,
+    gap: spacing.sm,
+  },
+  searchLoadingText: { fontSize: 12, color: colors.textMuted },
+  searchEmpty: { padding: spacing.md, alignItems: "center" },
+  searchEmptyText: { fontSize: 12, color: colors.textMuted },
+  searchResultRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: colors.surface,
+    padding: spacing.sm + 2,
+    borderRadius: radius.md,
+    marginBottom: 4,
+    gap: spacing.sm,
+  },
+  searchResultName: { fontSize: 14, fontWeight: "700", color: colors.text },
+  searchResultCode: { fontSize: 11, color: colors.primaryDark, fontWeight: "600", marginTop: 1 },
+  openChartSmallBtn: {
+    backgroundColor: colors.primaryLight,
+    paddingHorizontal: spacing.sm + 2,
+    paddingVertical: 5,
+    borderRadius: radius.md,
+  },
+  openChartSmallText: { fontSize: 11, fontWeight: "700", color: colors.primaryDark },
+  pendingBadgeSmall: {
+    backgroundColor: colors.warningLight,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    borderRadius: radius.md,
+  },
+  pendingBadgeText: { fontSize: 10, fontWeight: "700", color: colors.warningText },
+  requestAccessSmallBtn: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: spacing.sm + 2,
+    paddingVertical: 5,
+    borderRadius: radius.md,
+  },
+  requestAccessSmallText: { fontSize: 11, fontWeight: "700", color: colors.primaryText },
   openChartBtn: {
     backgroundColor: colors.primaryLight,
     paddingHorizontal: spacing.md,

@@ -339,5 +339,63 @@ export async function resolvePatientByCode(patientCode: string): Promise<{ id: s
   return p;
 }
 
+// Search patient by ID code or full name for doctor lookup & consent requests.
+export async function searchPatientsForDoctor(args: {
+  doctorUserId: string;
+  query: string;
+}): Promise<
+  Array<{
+    patientCode: string;
+    fullName: string;
+    gender: string | null;
+    hasActiveAccess: boolean;
+    hasPendingAccess: boolean;
+  }>
+> {
+  const doctor = await prisma.doctorProfile.findUnique({ where: { userId: args.doctorUserId } });
+  if (!doctor || doctor.verificationStatus !== DoctorVerificationStatus.APPROVED) {
+    throw errors.doctorNotVerified();
+  }
+
+  const q = args.query.trim();
+  if (!q) return [];
+
+  const patients = await prisma.patientProfile.findMany({
+    where: {
+      OR: [
+        { patientCode: { contains: q, mode: "insensitive" } },
+        { fullName: { contains: q, mode: "insensitive" } },
+      ],
+      user: { status: "ACTIVE" },
+    },
+    select: {
+      id: true,
+      patientCode: true,
+      fullName: true,
+      gender: true,
+      accessPermissions: {
+        where: { doctorUserId: args.doctorUserId },
+        select: { status: true, expiresAt: true },
+      },
+    },
+    take: 10,
+  });
+
+  return patients.map((p) => {
+    const activePerm = p.accessPermissions.find(
+      (perm) => perm.status === AccessPermissionStatus.APPROVED && (!perm.expiresAt || perm.expiresAt > new Date()),
+    );
+    const pendingPerm = p.accessPermissions.find((perm) => perm.status === AccessPermissionStatus.REQUESTED);
+    return {
+      patientCode: p.patientCode,
+      fullName: p.fullName,
+      gender: p.gender,
+      hasActiveAccess: !!activePerm,
+      hasPendingAccess: !!pendingPerm,
+    };
+  });
+}
+
 // Re-export for typing convenience in routes.
 export type { Prisma };
+

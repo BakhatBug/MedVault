@@ -1,4 +1,4 @@
-import { CreateBucketCommand, HeadBucketCommand, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
+import { CreateBucketCommand, HeadBucketCommand, PutObjectCommand, GetObjectCommand, DeleteObjectCommand, PutBucketCorsCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { randomUUID } from "node:crypto";
 import { s3 } from "../lib/s3.js";
@@ -56,23 +56,51 @@ export async function deleteObject(key: string): Promise<void> {
 }
 
 // Idempotent — called once at API boot. In prod, bucket is created by Terraform;
-// this is a dev convenience so MinIO is usable out of the box.
+// this is a dev convenience so MinIO is usable out of the box with full browser CORS support.
 export async function ensureBucket(): Promise<void> {
+  let bucketReady = false;
   try {
     await s3.send(new HeadBucketCommand({ Bucket: config.S3_BUCKET }));
     logger.info({ bucket: config.S3_BUCKET }, "s3 bucket exists");
-    return;
+    bucketReady = true;
   } catch (err) {
     const code = (err as { $metadata?: { httpStatusCode?: number } }).$metadata?.httpStatusCode;
     if (code !== 404 && code !== 403) {
       logger.warn({ err, bucket: config.S3_BUCKET }, "s3 head-bucket unexpected error; attempting create");
     }
   }
+
+  if (!bucketReady) {
+    try {
+      await s3.send(new CreateBucketCommand({ Bucket: config.S3_BUCKET }));
+      logger.info({ bucket: config.S3_BUCKET }, "s3 bucket created");
+      bucketReady = true;
+    } catch (err) {
+      logger.error({ err, bucket: config.S3_BUCKET }, "s3 ensure-bucket failed");
+      throw err;
+    }
+  }
+
+  // Ensure full CORS support for browser/mobile direct S3 pre-signed uploads and views
   try {
-    await s3.send(new CreateBucketCommand({ Bucket: config.S3_BUCKET }));
-    logger.info({ bucket: config.S3_BUCKET }, "s3 bucket created");
+    await s3.send(
+      new PutBucketCorsCommand({
+        Bucket: config.S3_BUCKET,
+        CORSConfiguration: {
+          CORSRules: [
+            {
+              AllowedHeaders: ["*"],
+              AllowedMethods: ["GET", "PUT", "POST", "DELETE", "HEAD"],
+              AllowedOrigins: ["*"],
+              ExposeHeaders: ["ETag", "x-amz-checksum-sha256", "x-amz-request-id"],
+              MaxAgeSeconds: 3600,
+            },
+          ],
+        },
+      }),
+    );
+    logger.info({ bucket: config.S3_BUCKET }, "s3 bucket CORS policy applied");
   } catch (err) {
-    logger.error({ err, bucket: config.S3_BUCKET }, "s3 ensure-bucket failed");
-    throw err;
+    logger.warn({ err, bucket: config.S3_BUCKET }, "failed to apply CORS policy to bucket");
   }
 }

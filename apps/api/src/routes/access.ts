@@ -26,6 +26,17 @@ function handleError(err: unknown, reply: FastifyReply) {
 }
 
 export async function accessRoutes(app: FastifyInstance): Promise<void> {
+  // Doctor → search patients by name or ID to request access
+  app.get("/access/search-patients", { preHandler: [app.requireAuth, app.requireRole("DOCTOR")] }, async (req, reply) => {
+    const q = (req.query as { q?: string }).q ?? "";
+    try {
+      const items = await accessService.searchPatientsForDoctor({ doctorUserId: req.user!.id, query: q });
+      return reply.send({ items });
+    } catch (err) {
+      return handleError(err, reply);
+    }
+  });
+
   // Doctor → request access to a patient
   app.post("/access/request", { preHandler: [app.requireAuth, app.requireRole("DOCTOR")] }, async (req, reply) => {
     const body = RequestBody.parse(req.body);
