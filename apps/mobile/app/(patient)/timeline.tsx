@@ -1,19 +1,25 @@
 import { RefreshControl, StyleSheet, Text, View } from "react-native";
+import { Ionicons, MaterialCommunityIcons, Feather } from "@expo/vector-icons";
 import { ScreenContainer } from "../../components/ScreenContainer";
 import { useTimeline, type TimelineEvent } from "../../lib/queries";
 import { colors, radius, shadows, spacing } from "../../lib/theme";
 
-const TYPE_CONFIG: Record<
-  TimelineEvent["type"],
-  { label: string; icon: string; bg: string; fg: string }
-> = {
-  record_uploaded: { label: "Upload", icon: "📁", bg: colors.primaryLight, fg: colors.primaryDark },
-  diagnosis: { label: "Diagnosis", icon: "🩺", bg: colors.dangerLight, fg: colors.dangerText },
-  lab_result: { label: "Lab Test", icon: "🧪", bg: colors.secondaryLight, fg: colors.secondaryText },
-  vaccination: { label: "Vaccine", icon: "💉", bg: colors.aiLight, fg: colors.aiDark },
-  allergy_recorded: { label: "Allergy", icon: "⚠️", bg: colors.warningLight, fg: colors.warningText },
-  medication_started: { label: "Med Start", icon: "💊", bg: colors.successLight, fg: colors.successText },
-  medication_discontinued: { label: "Med Stop", icon: "🛑", bg: colors.backgroundAlt, fg: colors.textMuted },
+type TypeConfig = {
+  label: string;
+  family: "ionicons" | "material";
+  iconName: any;
+  bg: string;
+  fg: string;
+};
+
+const TYPE_CONFIG: Record<TimelineEvent["type"], TypeConfig> = {
+  record_uploaded: { label: "Upload", family: "ionicons", iconName: "folder-outline", bg: colors.primaryLight, fg: colors.primaryDark },
+  diagnosis: { label: "Diagnosis", family: "ionicons", iconName: "pulse", bg: colors.dangerLight, fg: colors.dangerText },
+  lab_result: { label: "Lab Test", family: "material", iconName: "flask-outline", bg: colors.secondaryLight, fg: colors.secondaryText },
+  vaccination: { label: "Vaccine", family: "material", iconName: "needle", bg: colors.aiLight, fg: colors.aiDark },
+  allergy_recorded: { label: "Allergy", family: "ionicons", iconName: "alert-circle", bg: colors.warningLight, fg: colors.warningText },
+  medication_started: { label: "Med Start", family: "material", iconName: "pill", bg: colors.successLight, fg: colors.successText },
+  medication_discontinued: { label: "Med Stop", family: "material", iconName: "close-circle-outline", bg: colors.backgroundAlt, fg: colors.textMuted },
 };
 
 export default function TimelineScreen() {
@@ -42,7 +48,9 @@ export default function TimelineScreen() {
         <Text style={styles.error}>{(tl.error as Error).message}</Text>
       ) : (tl.data?.items.length ?? 0) === 0 ? (
         <View style={styles.emptyCard}>
-          <Text style={{ fontSize: 32, marginBottom: spacing.xs }}>⏱️</Text>
+          <View style={styles.emptyIconCircle}>
+            <Ionicons name="time-outline" size={32} color={colors.textMuted} />
+          </View>
           <Text style={styles.emptyTitle}>No Timeline Events Yet</Text>
           <Text style={styles.emptySub}>
             Uploaded records, diagnostic tests, and active medications will automatically appear here.
@@ -52,7 +60,8 @@ export default function TimelineScreen() {
         groupByDate(tl.data!.items).map(([date, events]) => (
           <View key={date} style={styles.group}>
             <View style={styles.dateHeaderBadge}>
-              <Text style={styles.dateHeaderText}>📅 {formatDate(date)}</Text>
+              <Ionicons name="calendar-outline" size={13} color={colors.primaryDark} style={{ marginRight: 4 }} />
+              <Text style={styles.dateHeaderText}>{formatDate(date)}</Text>
             </View>
 
             <View style={styles.timelineContainer}>
@@ -60,14 +69,19 @@ export default function TimelineScreen() {
               {events.map((e) => {
                 const cfg = TYPE_CONFIG[e.type] ?? {
                   label: e.type,
-                  icon: "📌",
+                  family: "ionicons",
+                  iconName: "bookmark-outline",
                   bg: colors.backgroundAlt,
                   fg: colors.textMuted,
                 };
                 return (
                   <View key={e.id} style={styles.timelineItem}>
                     <View style={[styles.timelineNode, { backgroundColor: cfg.bg }]}>
-                      <Text style={{ fontSize: 14 }}>{cfg.icon}</Text>
+                      {cfg.family === "material" ? (
+                        <MaterialCommunityIcons name={cfg.iconName} size={15} color={cfg.fg} />
+                      ) : (
+                        <Ionicons name={cfg.iconName} size={15} color={cfg.fg} />
+                      )}
                     </View>
                     <View style={styles.timelineCard}>
                       <View style={styles.timelineCardTop}>
@@ -112,6 +126,8 @@ const styles = StyleSheet.create({
   subtitle: { color: colors.textMuted, marginTop: 2, fontSize: 13 },
   group: { marginBottom: spacing.xl },
   dateHeaderBadge: {
+    flexDirection: "row",
+    alignItems: "center",
     alignSelf: "flex-start",
     backgroundColor: colors.surface,
     paddingHorizontal: spacing.md,
@@ -144,21 +160,20 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   timelineNode: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
+    zIndex: 2,
     borderWidth: 2,
     borderColor: colors.surface,
-    zIndex: 2,
-    ...shadows.sm,
   },
   timelineCard: {
     flex: 1,
     backgroundColor: colors.surface,
-    borderRadius: radius.xl,
-    padding: spacing.md + 2,
+    borderRadius: radius.lg,
+    padding: spacing.md,
     borderWidth: 1,
     borderColor: colors.border,
     ...shadows.sm,
@@ -166,29 +181,37 @@ const styles = StyleSheet.create({
   timelineCardTop: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "flex-start",
-    gap: spacing.sm,
+    alignItems: "center",
+    gap: spacing.xs,
   },
   eventTitle: { fontSize: 14, fontWeight: "700", color: colors.text, flex: 1 },
   typeBadge: {
-    paddingHorizontal: spacing.sm + 2,
-    paddingVertical: 3,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
     borderRadius: radius.full,
   },
-  typeBadgeText: { fontSize: 10, fontWeight: "800" },
-  eventDesc: { fontSize: 12, color: colors.textMuted, marginTop: 4, lineHeight: 16 },
-  loadingContainer: { padding: spacing.xl, alignItems: "center" },
+  typeBadgeText: { fontSize: 10, fontWeight: "700" },
+  eventDesc: { fontSize: 12, color: colors.textSecondary, marginTop: 4, lineHeight: 16 },
+  loadingContainer: { padding: spacing.xxl, alignItems: "center" },
+  muted: { color: colors.textMuted, fontSize: 13 },
+  error: { color: colors.danger, fontSize: 13 },
   emptyCard: {
     backgroundColor: colors.surface,
     borderRadius: radius.xl,
-    padding: spacing.xxl,
+    padding: spacing.xl,
     alignItems: "center",
     borderWidth: 1,
     borderColor: colors.border,
-    ...shadows.sm,
+  },
+  emptyIconCircle: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: colors.backgroundAlt,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: spacing.sm,
   },
   emptyTitle: { fontSize: 16, fontWeight: "700", color: colors.text },
   emptySub: { fontSize: 13, color: colors.textMuted, textAlign: "center", marginTop: 4 },
-  muted: { color: colors.textMuted, fontSize: 13 },
-  error: { color: colors.danger, fontSize: 13 },
 });

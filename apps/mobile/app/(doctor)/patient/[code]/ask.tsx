@@ -1,3 +1,5 @@
+import { Feather, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import { Stack, useLocalSearchParams } from "expo-router";
 import { useRef, useState } from "react";
 import {
@@ -89,9 +91,14 @@ export default function AskAiScreen() {
           {/* Welcome Hint Card */}
           <View style={styles.hintCard}>
             <View style={styles.hintCardHead}>
-              <View style={styles.sparkIconBox}>
-                <Text style={{ fontSize: 18 }}>✨</Text>
-              </View>
+              <LinearGradient
+                colors={[colors.ai, colors.aiDark]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.sparkIconBox}
+              >
+                <Ionicons name="sparkles" size={18} color="#FFFFFF" />
+              </LinearGradient>
               <View style={{ flex: 1 }}>
                 <Text style={styles.hintTitle}>AI Clinical Assistant</Text>
                 <Text style={styles.hintSub}>Grounded on verified FHIR clinical records for {code}</Text>
@@ -111,7 +118,8 @@ export default function AskAiScreen() {
                   disabled={ask.isPending}
                   style={({ pressed }) => [styles.chip, pressed && styles.chipPressed]}
                 >
-                  <Text style={styles.chipText}>💡 {q}</Text>
+                  <Ionicons name="bulb-outline" size={14} color={colors.aiDark} style={{ marginRight: 6 }} />
+                  <Text style={styles.chipText}>{q}</Text>
                 </Pressable>
               ))}
             </View>
@@ -123,7 +131,8 @@ export default function AskAiScreen() {
               {/* Doctor Question */}
               <View style={styles.questionBubble}>
                 <View style={styles.questionRoleRow}>
-                  <Text style={styles.questionRole}>👨‍⚕️ Clinician Inquiry</Text>
+                  <MaterialCommunityIcons name="doctor" size={13} color="#FFFFFF" style={{ marginRight: 4 }} />
+                  <Text style={styles.questionRole}>Clinician Inquiry</Text>
                 </View>
                 <Text style={styles.questionText}>{e.question}</Text>
               </View>
@@ -131,13 +140,14 @@ export default function AskAiScreen() {
               {/* AI Answer Card */}
               {e.error ? (
                 <View style={styles.errorBubble}>
-                  <Text style={styles.errorText}>⚠️ {e.error}</Text>
+                  <Ionicons name="alert-circle" size={16} color={colors.danger} style={{ marginRight: 4 }} />
+                  <Text style={styles.errorText}>{e.error}</Text>
                 </View>
               ) : e.answer ? (
                 <View style={styles.answerBubble}>
                   <View style={styles.answerHeader}>
                     <View style={styles.aiTag}>
-                      <Text style={{ fontSize: 12 }}>✨</Text>
+                      <Ionicons name="sparkles" size={14} color={colors.ai} style={{ marginRight: 4 }} />
                       <Text style={styles.aiLabel}>MediVault Clinical AI</Text>
                     </View>
                     {e.model ? <Text style={styles.modelTag}>{e.model}</Text> : null}
@@ -188,7 +198,10 @@ export default function AskAiScreen() {
             {ask.isPending ? (
               <ActivityIndicator color={colors.primaryText} size="small" />
             ) : (
-              <Text style={styles.sendText}>Ask AI</Text>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                <Text style={styles.sendText}>Ask AI</Text>
+                <Ionicons name="send" size={13} color="#FFFFFF" />
+              </View>
             )}
           </Pressable>
         </View>
@@ -224,6 +237,8 @@ const styles = StyleSheet.create({
   hintSectionTitle: { color: colors.text, fontWeight: "700", fontSize: 12, marginTop: spacing.xs },
   chipContainer: { gap: spacing.xs, marginTop: 2 },
   chip: {
+    flexDirection: "row",
+    alignItems: "center",
     backgroundColor: colors.surface,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm + 2,
@@ -232,7 +247,7 @@ const styles = StyleSheet.create({
     borderColor: colors.aiBorder,
   },
   chipPressed: { backgroundColor: colors.backgroundAlt },
-  chipText: { fontSize: 13, color: colors.aiDark, fontWeight: "600" },
+  chipText: { fontSize: 13, color: colors.aiDark, fontWeight: "600", flex: 1 },
   exchange: { gap: spacing.md },
   questionBubble: {
     alignSelf: "flex-end",
@@ -243,8 +258,8 @@ const styles = StyleSheet.create({
     maxWidth: "88%",
     ...shadows.sm,
   },
-  questionRoleRow: { marginBottom: 4 },
-  questionRole: { fontSize: 11, color: "rgba(255, 255, 255, 0.8)", fontWeight: "700" },
+  questionRoleRow: { flexDirection: "row", alignItems: "center", marginBottom: 4 },
+  questionRole: { fontSize: 11, color: "rgba(255, 255, 255, 0.85)", fontWeight: "700" },
   questionText: { color: colors.primaryText, fontSize: 14, fontWeight: "500", lineHeight: 20 },
   answerBubble: {
     alignSelf: "flex-start",

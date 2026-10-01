@@ -10,20 +10,29 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { Ionicons, Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { RecordDetailModal } from "../../components/RecordDetailModal";
+import { MedicalIcon } from "../../components/MedicalIcon";
 import { ScreenContainer } from "../../components/ScreenContainer";
 import { useRecordDetail, useRecords, useRecordViewUrl } from "../../lib/queries";
 import { colors, radius, shadows, spacing } from "../../lib/theme";
 
-const CATEGORIES: Array<{ key: string; label: string; icon: string }> = [
-  { key: "ALL", label: "All Folders", icon: "📁" },
-  { key: "PRESCRIPTION", label: "Prescriptions", icon: "💊" },
-  { key: "LAB_RESULT", label: "Lab Results", icon: "🧪" },
-  { key: "IMAGING", label: "Imaging & Scans", icon: "🩻" },
-  { key: "DISCHARGE_SUMMARY", label: "Discharge", icon: "📋" },
-  { key: "CONSULTATION_NOTE", label: "Doctor Notes", icon: "📝" },
-  { key: "VACCINATION", label: "Vaccines", icon: "💉" },
-  { key: "OTHER", label: "Other", icon: "📄" },
+type CategoryItem = {
+  key: string;
+  label: string;
+  iconFamily: "ionicons" | "material" | "feather";
+  iconName: any;
+};
+
+const CATEGORIES: CategoryItem[] = [
+  { key: "ALL", label: "All Folders", iconFamily: "ionicons", iconName: "folder-open-outline" },
+  { key: "PRESCRIPTION", label: "Prescriptions", iconFamily: "material", iconName: "pill" },
+  { key: "LAB_RESULT", label: "Lab Results", iconFamily: "material", iconName: "flask-round-bottom-outline" },
+  { key: "IMAGING", label: "Imaging & Scans", iconFamily: "material", iconName: "radiology-box-outline" },
+  { key: "DISCHARGE_SUMMARY", label: "Discharge", iconFamily: "material", iconName: "clipboard-pulse-outline" },
+  { key: "CONSULTATION_NOTE", label: "Doctor Notes", iconFamily: "ionicons", iconName: "document-text-outline" },
+  { key: "VACCINATION", label: "Vaccines", iconFamily: "material", iconName: "needle" },
+  { key: "OTHER", label: "Other", iconFamily: "ionicons", iconName: "document-outline" },
 ];
 
 const STATUS_CONFIG: Record<string, { label: string; bg: string; fg: string; dot: string }> = {
@@ -77,13 +86,14 @@ export default function RecordsScreen() {
           style={({ pressed }) => [styles.addButton, pressed && { opacity: 0.85 }]}
           accessibilityLabel="Upload a new medical record"
         >
-          <Text style={styles.addButtonText}>+ Upload</Text>
+          <Ionicons name="add" size={16} color={colors.primaryText} />
+          <Text style={styles.addButtonText}>Upload</Text>
         </Pressable>
       </View>
 
       {/* Search Bar */}
       <View style={styles.searchBox}>
-        <Text style={styles.searchIcon}>🔍</Text>
+        <Ionicons name="search-outline" size={18} color={colors.textMuted} style={styles.searchIcon} />
         <TextInput
           value={searchQuery}
           onChangeText={setSearchQuery}
@@ -93,7 +103,7 @@ export default function RecordsScreen() {
         />
         {searchQuery ? (
           <Pressable onPress={() => setSearchQuery("")} style={styles.clearBtn}>
-            <Text style={styles.clearBtnText}>✕</Text>
+            <Ionicons name="close-circle" size={18} color={colors.textMuted} />
           </Pressable>
         ) : null}
       </View>
@@ -112,7 +122,30 @@ export default function RecordsScreen() {
               onPress={() => setSelectedCategory(c.key)}
               style={[styles.categoryPill, isSelected && styles.categoryPillActive]}
             >
-              <Text style={{ fontSize: 13, marginRight: 4 }}>{c.icon}</Text>
+              {c.iconFamily === "ionicons" && (
+                <Ionicons
+                  name={c.iconName}
+                  size={15}
+                  color={isSelected ? colors.surface : colors.primaryDark}
+                  style={{ marginRight: 5 }}
+                />
+              )}
+              {c.iconFamily === "material" && (
+                <MaterialCommunityIcons
+                  name={c.iconName}
+                  size={15}
+                  color={isSelected ? colors.surface : colors.primaryDark}
+                  style={{ marginRight: 5 }}
+                />
+              )}
+              {c.iconFamily === "feather" && (
+                <Feather
+                  name={c.iconName}
+                  size={15}
+                  color={isSelected ? colors.surface : colors.primaryDark}
+                  style={{ marginRight: 5 }}
+                />
+              )}
               <Text style={[styles.categoryText, isSelected && styles.categoryTextActive]}>
                 {c.label}
               </Text>
@@ -131,7 +164,9 @@ export default function RecordsScreen() {
         <Text style={styles.error}>{(records.error as Error).message}</Text>
       ) : filteredItems.length === 0 ? (
         <View style={styles.emptyCard}>
-          <Text style={{ fontSize: 40, marginBottom: spacing.xs }}>📂</Text>
+          <View style={styles.emptyIconCircle}>
+            <Ionicons name="folder-open-outline" size={32} color={colors.textMuted} />
+          </View>
           <Text style={styles.emptyTitle}>No records in this folder</Text>
           <Text style={styles.emptySub}>
             {searchQuery
@@ -142,7 +177,8 @@ export default function RecordsScreen() {
             onPress={() => router.push("/(patient)/upload")}
             style={({ pressed }) => [styles.uploadEmptyBtn, pressed && { opacity: 0.85 }]}
           >
-            <Text style={styles.uploadEmptyBtnText}>+ Upload Medical Document</Text>
+            <Ionicons name="add" size={17} color="#FFFFFF" />
+            <Text style={styles.uploadEmptyBtnText}>Upload Medical Document</Text>
           </Pressable>
         </View>
       ) : (
@@ -153,16 +189,6 @@ export default function RecordsScreen() {
             fg: colors.textMuted,
             dot: "#94A3B8",
           };
-          const catIcon =
-            r.category === "PRESCRIPTION"
-              ? "💊"
-              : r.category === "LAB_RESULT"
-              ? "🧪"
-              : r.category === "IMAGING"
-              ? "🩻"
-              : r.category === "DISCHARGE_SUMMARY"
-              ? "📋"
-              : "📄";
 
           return (
             <Pressable
@@ -171,9 +197,7 @@ export default function RecordsScreen() {
               style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
             >
               <View style={styles.cardTopRow}>
-                <View style={styles.catIconBox}>
-                  <Text style={{ fontSize: 20 }}>{catIcon}</Text>
-                </View>
+                <MedicalIcon category={r.category} size={44} />
                 <View style={{ flex: 1, paddingRight: spacing.xs }}>
                   <Text style={styles.rowTitle} numberOfLines={2}>
                     {r.title}
@@ -190,8 +214,14 @@ export default function RecordsScreen() {
               </View>
 
               <View style={styles.cardBottomRow}>
-                <Text style={styles.cardHint}>Click to view AI extracted clinical data</Text>
-                <Text style={styles.inspectBtn}>Inspect AI Data →</Text>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                  <Ionicons name="sparkles" size={12} color={colors.ai} />
+                  <Text style={styles.cardHint}>Click to view AI extracted clinical data</Text>
+                </View>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 2 }}>
+                  <Text style={styles.inspectBtn}>Inspect AI Data</Text>
+                  <Feather name="arrow-right" size={12} color={colors.primaryDark} />
+                </View>
               </View>
             </Pressable>
           );
@@ -225,9 +255,12 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   addButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
     backgroundColor: colors.primary,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm + 3,
+    paddingHorizontal: spacing.md + 2,
+    paddingVertical: spacing.sm + 2,
     borderRadius: radius.md,
     marginTop: spacing.xs,
     ...shadows.sm,
@@ -246,18 +279,21 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
     ...shadows.sm,
   },
-  searchIcon: { fontSize: 14, marginRight: spacing.sm },
+  searchIcon: { marginRight: spacing.sm },
   searchInput: { flex: 1, paddingVertical: spacing.md, fontSize: 14, color: colors.text },
   clearBtn: { padding: spacing.xs },
-  clearBtnText: { color: colors.textMuted, fontSize: 12 },
-  categoryScroll: { gap: spacing.xs, paddingBottom: spacing.md },
+  categoryScroll: {
+    flexDirection: "row",
+    gap: spacing.xs + 2,
+    paddingBottom: spacing.md,
+  },
   categoryPill: {
     flexDirection: "row",
     alignItems: "center",
+    backgroundColor: colors.surface,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     borderRadius: radius.full,
-    backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
   },
@@ -265,28 +301,42 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     borderColor: colors.primary,
   },
-  categoryText: { fontSize: 13, fontWeight: "600", color: colors.textMuted },
-  categoryTextActive: { color: colors.primaryText, fontWeight: "700" },
-  loadingBox: { padding: spacing.xxl, alignItems: "center", gap: spacing.sm },
+  categoryText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: colors.textSecondary,
+  },
+  categoryTextActive: {
+    color: colors.surface,
+    fontWeight: "700",
+  },
+  loadingBox: { padding: spacing.xxl, alignItems: "center" },
+  muted: { color: colors.textMuted, marginTop: spacing.sm, fontSize: 13 },
+  error: { color: colors.danger, marginVertical: spacing.md, fontSize: 13 },
   emptyCard: {
     backgroundColor: colors.surface,
     borderRadius: radius.xl,
-    padding: spacing.xxl,
+    padding: spacing.xl,
     alignItems: "center",
     borderWidth: 1,
     borderColor: colors.border,
     marginTop: spacing.sm,
-    ...shadows.sm,
   },
-  emptyTitle: { fontSize: 17, fontWeight: "700", color: colors.text },
-  emptySub: {
-    fontSize: 13,
-    color: colors.textMuted,
-    textAlign: "center",
-    marginTop: spacing.xs,
-    marginBottom: spacing.lg,
+  emptyIconCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: colors.backgroundAlt,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: spacing.sm,
   },
+  emptyTitle: { fontSize: 16, fontWeight: "700", color: colors.text },
+  emptySub: { fontSize: 13, color: colors.textMuted, textAlign: "center", marginTop: 4, marginBottom: spacing.lg },
   uploadEmptyBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
     backgroundColor: colors.primary,
     paddingHorizontal: spacing.xl,
     paddingVertical: spacing.md,
@@ -295,29 +345,17 @@ const styles = StyleSheet.create({
   uploadEmptyBtnText: { color: colors.primaryText, fontWeight: "700", fontSize: 14 },
   row: {
     backgroundColor: colors.surface,
-    borderRadius: radius.xl,
-    padding: spacing.md + 2,
-    marginBottom: spacing.md,
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
     borderWidth: 1,
     borderColor: colors.border,
     ...shadows.sm,
   },
   rowPressed: { backgroundColor: colors.backgroundAlt },
-  cardTopRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: spacing.md,
-  },
-  catIconBox: {
-    width: 44,
-    height: 44,
-    borderRadius: radius.lg,
-    backgroundColor: colors.background,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  rowTitle: { color: colors.text, fontWeight: "700", fontSize: 15, lineHeight: 20 },
-  rowSub: { color: colors.textMuted, fontSize: 12, marginTop: 4 },
+  cardTopRow: { flexDirection: "row", alignItems: "center", gap: spacing.md },
+  rowTitle: { fontSize: 14, fontWeight: "700", color: colors.text },
+  rowSub: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
   badge: {
     flexDirection: "row",
     alignItems: "center",
@@ -326,23 +364,17 @@ const styles = StyleSheet.create({
     borderRadius: radius.full,
     gap: 4,
   },
-  statusDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
+  statusDot: { width: 6, height: 6, borderRadius: 3 },
   badgeText: { fontSize: 11, fontWeight: "700" },
   cardBottomRow: {
-    marginTop: spacing.md,
-    paddingTop: spacing.sm + 2,
-    borderTopWidth: 1,
-    borderTopColor: colors.borderLight,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+    marginTop: spacing.md,
+    paddingTop: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.borderLight,
   },
   cardHint: { fontSize: 11, color: colors.textMuted },
-  inspectBtn: { fontSize: 12, fontWeight: "700", color: colors.primary },
-  muted: { color: colors.textMuted, fontSize: 13 },
-  error: { color: colors.danger, fontSize: 13 },
+  inspectBtn: { fontSize: 11, fontWeight: "700", color: colors.primaryDark },
 });

@@ -8,7 +8,10 @@ import {
   Text,
   View,
 } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
+import { Ionicons, MaterialCommunityIcons, Feather } from "@expo/vector-icons";
 import { ScreenContainer } from "../../components/ScreenContainer";
+import { MedicalIcon } from "../../components/MedicalIcon";
 import { useAuth } from "../../lib/auth-context";
 import {
   useIncomingAccess,
@@ -79,14 +82,17 @@ export default function HomeScreen() {
             <Text style={styles.userName}>{userName}</Text>
           </View>
           <View style={styles.vaultShieldBadge}>
-            <Text style={styles.shieldIcon}>🔒</Text>
+            <Ionicons name="shield-checkmark" size={13} color={colors.primaryDark} />
             <Text style={styles.vaultShieldText}>Vault Active</Text>
           </View>
         </View>
 
         {patientCode ? (
           <View style={styles.codeContainer}>
-            <Text style={styles.codeLabel}>Patient ID</Text>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+              <Ionicons name="finger-print-outline" size={16} color={colors.textMuted} />
+              <Text style={styles.codeLabel}>Patient ID</Text>
+            </View>
             <Text style={styles.codeValue}>{patientCode}</Text>
           </View>
         ) : null}
@@ -99,7 +105,7 @@ export default function HomeScreen() {
           style={({ pressed }) => [styles.pendingBanner, pressed && { opacity: 0.9 }]}
         >
           <View style={styles.pendingIconBox}>
-            <Text style={{ fontSize: 20 }}>👨‍⚕️</Text>
+            <MaterialCommunityIcons name="doctor" size={22} color={colors.warningText} />
           </View>
           <View style={{ flex: 1 }}>
             <Text style={styles.pendingTitle}>
@@ -113,7 +119,8 @@ export default function HomeScreen() {
             </Text>
           </View>
           <View style={styles.reviewPill}>
-            <Text style={styles.reviewPillText}>Review ›</Text>
+            <Text style={styles.reviewPillText}>Review</Text>
+            <Feather name="chevron-right" size={14} color={colors.surface} />
           </View>
         </Pressable>
       ) : null}
@@ -121,25 +128,37 @@ export default function HomeScreen() {
       {/* Quick Action Grid */}
       <View style={styles.quickActionRow}>
         <QuickActionItem
-          icon="📤"
+          iconFamily="feather"
+          iconName="upload-cloud"
+          iconColor="#0D9488"
+          iconBg="#F0FDFA"
           label="Upload"
           sub="Add record"
           onPress={() => router.push("/(patient)/upload")}
         />
         <QuickActionItem
-          icon="💊"
+          iconFamily="material"
+          iconName="pill"
+          iconColor="#2563EB"
+          iconBg="#EFF6FF"
           label="Meds"
           sub="Prescriptions"
           onPress={() => router.push("/(patient)/medications")}
         />
         <QuickActionItem
-          icon="🪪"
+          iconFamily="ionicons"
+          iconName="qr-code-outline"
+          iconColor="#E11D48"
+          iconBg="#FFF1F2"
           label="Emergency"
           sub="Public QR"
           onPress={() => router.push("/(patient)/emergency")}
         />
         <QuickActionItem
-          icon="🤝"
+          iconFamily="material"
+          iconName="stethoscope"
+          iconColor="#7C3AED"
+          iconBg="#F5F3FF"
           label="Doctors"
           sub={`${approvedDoctors.length} active`}
           onPress={() => router.push("/(patient)/access")}
@@ -149,21 +168,21 @@ export default function HomeScreen() {
       {/* Stats Summary Grid */}
       <View style={styles.statsGrid}>
         <MetricCard
-          icon="📁"
-          label="Medical Records"
+          icon={<Ionicons name="folder-outline" size={16} color={colors.primary} />}
+          label="Vault Records"
           value={String(recordCount)}
           caption="Documents in vault"
           onPress={() => router.push("/(patient)/records")}
         />
         <MetricCard
-          icon="💊"
+          icon={<MaterialCommunityIcons name="pill" size={16} color="#2563EB" />}
           label="Active Meds"
           value={String(activeMedsCount)}
           caption="Currently taking"
           onPress={() => router.push("/(patient)/medications")}
         />
         <MetricCard
-          icon="⏱️"
+          icon={<Ionicons name="pulse-outline" size={16} color="#16A34A" />}
           label="Health Events"
           value={String(timelineCount)}
           caption="Timeline records"
@@ -178,7 +197,7 @@ export default function HomeScreen() {
           style={({ pressed }) => [styles.alertCard, pressed && { opacity: 0.9 }]}
         >
           <View style={styles.alertHeader}>
-            <Text style={{ fontSize: 18 }}>⚠️</Text>
+            <Ionicons name="warning" size={18} color={colors.danger} />
             <Text style={styles.alertTitle}>Major Drug Interaction Warning</Text>
           </View>
           <Text style={styles.alertBody}>
@@ -187,23 +206,35 @@ export default function HomeScreen() {
         </Pressable>
       ) : null}
 
-      {/* AI Clinical Assistant Feature Banner */}
+      {/* AI Clinical Assistant Feature Banner with Gradient */}
       <Pressable
         onPress={() => router.push("/(patient)/ai" as any)}
-        style={({ pressed }) => [styles.aiInsightCard, pressed && { opacity: 0.92 }]}
+        style={({ pressed }) => [styles.aiBannerPressable, pressed && { opacity: 0.94 }]}
       >
-        <View style={styles.aiHeader}>
-          <Text style={{ fontSize: 24 }}>🧠</Text>
-          <View style={{ flex: 1 }}>
-            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-              <Text style={styles.aiTitle}>AI Health Assistant & Insights</Text>
-              <Text style={{ fontSize: 13, color: colors.aiDark, fontWeight: "700" }}>Open ›</Text>
+        <LinearGradient
+          colors={["#4F46E5", "#6366F1", "#818CF8"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.aiInsightCard}
+        >
+          <View style={styles.aiHeader}>
+            <View style={styles.aiIconBadge}>
+              <Ionicons name="sparkles" size={20} color="#FFFFFF" />
             </View>
-            <Text style={styles.aiSub}>
-              Ask questions about your medical records, explain lab values, or view your AI health summary.
-            </Text>
+            <View style={{ flex: 1 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                <Text style={styles.aiTitle}>AI Clinical Assistant & Insights</Text>
+                <View style={styles.openAiPill}>
+                  <Text style={styles.openAiText}>Open</Text>
+                  <Feather name="chevron-right" size={13} color="#FFFFFF" />
+                </View>
+              </View>
+              <Text style={styles.aiSub}>
+                Ask questions about your health records, explain lab values, or view your longitudinal summary.
+              </Text>
+            </View>
           </View>
-        </View>
+        </LinearGradient>
       </Pressable>
 
       {/* Recent Uploads Section */}
@@ -216,7 +247,8 @@ export default function HomeScreen() {
           onPress={() => router.push("/(patient)/records")}
           style={({ pressed }) => [styles.viewAllBtn, pressed && { opacity: 0.8 }]}
         >
-          <Text style={styles.viewAllText}>View All →</Text>
+          <Text style={styles.viewAllText}>View All</Text>
+          <Feather name="arrow-right" size={13} color={colors.primary} />
         </Pressable>
       </View>
 
@@ -229,14 +261,17 @@ export default function HomeScreen() {
         <Text style={styles.errorText}>{(records.error as Error).message}</Text>
       ) : recordCount === 0 ? (
         <View style={styles.emptyCard}>
-          <Text style={{ fontSize: 36, marginBottom: spacing.xs }}>📄</Text>
+          <View style={styles.emptyIconCircle}>
+            <Ionicons name="document-text-outline" size={32} color={colors.textMuted} />
+          </View>
           <Text style={styles.emptyTitle}>Your Vault is Empty</Text>
           <Text style={styles.emptyBody}>Upload your first prescription, lab report, or scan to get started.</Text>
           <Pressable
             onPress={() => router.push("/(patient)/upload")}
             style={({ pressed }) => [styles.uploadFirstBtn, pressed && { opacity: 0.85 }]}
           >
-            <Text style={styles.uploadFirstBtnText}>+ Upload Medical Record</Text>
+            <Ionicons name="add" size={18} color="#FFFFFF" />
+            <Text style={styles.uploadFirstBtnText}>Upload Medical Record</Text>
           </Pressable>
         </View>
       ) : (
@@ -246,18 +281,8 @@ export default function HomeScreen() {
             onPress={() => router.push("/(patient)/records")}
             style={({ pressed }) => [styles.recordRow, pressed && { opacity: 0.9 }]}
           >
-            <View style={styles.recordIconBox}>
-              <Text style={{ fontSize: 18 }}>
-                {r.category === "PRESCRIPTION"
-                  ? "💊"
-                  : r.category === "LAB_RESULT"
-                  ? "🧪"
-                  : r.category === "IMAGING"
-                  ? "🩻"
-                  : "📄"}
-              </Text>
-            </View>
-            <View style={{ flex: 1 }}>
+            <MedicalIcon category={r.category} size={42} />
+            <View style={{ flex: 1, paddingRight: spacing.xs }}>
               <Text style={styles.recordTitle} numberOfLines={1}>
                 {r.title}
               </Text>
@@ -265,9 +290,25 @@ export default function HomeScreen() {
                 {r.category.replace(/_/g, " ").toLowerCase()} · {new Date(r.uploadedAt).toLocaleDateString()}
               </Text>
             </View>
-            <View style={styles.aiStatusBadge}>
-              <Text style={styles.aiStatusText}>
-                {r.aiStatus === "COMPLETED" ? "Extracted ✓" : "Processing…"}
+            <View
+              style={[
+                styles.aiStatusBadge,
+                r.aiStatus === "COMPLETED" ? styles.aiBadgeDone : styles.aiBadgeProcessing,
+              ]}
+            >
+              <View
+                style={[
+                  styles.aiStatusDot,
+                  { backgroundColor: r.aiStatus === "COMPLETED" ? colors.success : colors.warning },
+                ]}
+              />
+              <Text
+                style={[
+                  styles.aiStatusText,
+                  { color: r.aiStatus === "COMPLETED" ? colors.successDark : colors.warningText },
+                ]}
+              >
+                {r.aiStatus === "COMPLETED" ? "Extracted" : "Processing"}
               </Text>
             </View>
           </Pressable>
@@ -278,12 +319,18 @@ export default function HomeScreen() {
 }
 
 function QuickActionItem({
-  icon,
+  iconFamily,
+  iconName,
+  iconColor,
+  iconBg,
   label,
   sub,
   onPress,
 }: {
-  icon: string;
+  iconFamily: "ionicons" | "material" | "feather";
+  iconName: any;
+  iconColor: string;
+  iconBg: string;
   label: string;
   sub: string;
   onPress: () => void;
@@ -293,8 +340,10 @@ function QuickActionItem({
       onPress={onPress}
       style={({ pressed }) => [styles.quickActionBtn, pressed && styles.quickActionBtnPressed]}
     >
-      <View style={styles.quickActionIconBox}>
-        <Text style={{ fontSize: 20 }}>{icon}</Text>
+      <View style={[styles.quickActionIconBox, { backgroundColor: iconBg }]}>
+        {iconFamily === "ionicons" && <Ionicons name={iconName} size={19} color={iconColor} />}
+        {iconFamily === "material" && <MaterialCommunityIcons name={iconName} size={20} color={iconColor} />}
+        {iconFamily === "feather" && <Feather name={iconName} size={19} color={iconColor} />}
       </View>
       <Text style={styles.quickActionLabel}>{label}</Text>
       <Text style={styles.quickActionSub}>{sub}</Text>
@@ -309,7 +358,7 @@ function MetricCard({
   caption,
   onPress,
 }: {
-  icon: string;
+  icon: React.ReactNode;
   label: string;
   value: string;
   caption: string;
@@ -318,7 +367,7 @@ function MetricCard({
   return (
     <Pressable onPress={onPress} style={({ pressed }) => [styles.metricCard, pressed && { opacity: 0.9 }]}>
       <View style={styles.metricHeader}>
-        <Text style={{ fontSize: 16 }}>{icon}</Text>
+        {icon}
         <Text style={styles.metricLabel}>{label}</Text>
       </View>
       <Text style={styles.metricValue}>{value}</Text>
@@ -376,7 +425,6 @@ const styles = StyleSheet.create({
     borderColor: colors.primaryMuted,
     gap: 4,
   },
-  shieldIcon: { fontSize: 11 },
   vaultShieldText: {
     fontSize: 11,
     fontWeight: "700",
@@ -420,6 +468,9 @@ const styles = StyleSheet.create({
   pendingTitle: { color: colors.warningText, fontWeight: "700", fontSize: 14 },
   pendingBody: { color: colors.textSecondary, fontSize: 12, marginTop: 2 },
   reviewPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
     backgroundColor: colors.warning,
     paddingHorizontal: spacing.md,
     paddingVertical: 6,
@@ -445,13 +496,12 @@ const styles = StyleSheet.create({
     backgroundColor: colors.backgroundAlt,
   },
   quickActionIconBox: {
-    width: 36,
-    height: 36,
+    width: 38,
+    height: 38,
     borderRadius: radius.md,
-    backgroundColor: colors.background,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 4,
+    marginBottom: 6,
   },
   quickActionLabel: { fontSize: 12, fontWeight: "700", color: colors.text },
   quickActionSub: { fontSize: 10, color: colors.textMuted, marginTop: 1 },
@@ -469,9 +519,9 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     ...shadows.sm,
   },
-  metricHeader: { flexDirection: "row", alignItems: "center", gap: 4, marginBottom: 4 },
+  metricHeader: { flexDirection: "row", alignItems: "center", gap: 5, marginBottom: 4 },
   metricLabel: { fontSize: 11, fontWeight: "600", color: colors.textMuted },
-  metricValue: { fontSize: 24, fontWeight: "800", color: colors.primary, letterSpacing: -0.5 },
+  metricValue: { fontSize: 22, fontWeight: "800", color: colors.primaryDark, letterSpacing: -0.5 },
   metricCaption: { fontSize: 10, color: colors.textMuted, marginTop: 2 },
   alertCard: {
     marginTop: spacing.md,
@@ -484,17 +534,37 @@ const styles = StyleSheet.create({
   alertHeader: { flexDirection: "row", alignItems: "center", gap: spacing.xs, marginBottom: 4 },
   alertTitle: { color: colors.dangerText, fontWeight: "700", fontSize: 14 },
   alertBody: { color: colors.textSecondary, fontSize: 12, lineHeight: 17 },
-  aiInsightCard: {
+  aiBannerPressable: {
     marginTop: spacing.md,
-    backgroundColor: colors.aiLight,
-    borderRadius: radius.lg,
-    padding: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.aiBorder,
+    borderRadius: radius.xl,
+    overflow: "hidden",
+    ...shadows.md,
   },
-  aiHeader: { flexDirection: "row", alignItems: "flex-start", gap: spacing.sm },
-  aiTitle: { fontSize: 13, fontWeight: "700", color: colors.aiDark },
-  aiSub: { fontSize: 12, color: colors.textSecondary, lineHeight: 17, marginTop: 2 },
+  aiInsightCard: {
+    padding: spacing.lg,
+    borderRadius: radius.xl,
+  },
+  aiHeader: { flexDirection: "row", alignItems: "flex-start", gap: spacing.md },
+  aiIconBadge: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: "rgba(255, 255, 255, 0.22)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  aiTitle: { fontSize: 14, fontWeight: "800", color: "#FFFFFF" },
+  openAiPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    paddingHorizontal: spacing.sm + 2,
+    paddingVertical: 3,
+    borderRadius: radius.full,
+  },
+  openAiText: { fontSize: 11, color: "#FFFFFF", fontWeight: "700" },
+  aiSub: { fontSize: 12, color: "rgba(255, 255, 255, 0.9)", lineHeight: 17, marginTop: 4 },
   sectionHeaderRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -504,7 +574,7 @@ const styles = StyleSheet.create({
   },
   sectionHeading: { fontSize: 16, fontWeight: "700", color: colors.text },
   sectionSubHeading: { fontSize: 12, color: colors.textMuted, marginTop: 1 },
-  viewAllBtn: { paddingVertical: 4 },
+  viewAllBtn: { flexDirection: "row", alignItems: "center", gap: 3, paddingVertical: 4 },
   viewAllText: { fontSize: 13, color: colors.primary, fontWeight: "700" },
   loadingContainer: { padding: spacing.xl, alignItems: "center", gap: spacing.xs },
   loadingText: { color: colors.textMuted, fontSize: 13 },
@@ -518,9 +588,21 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     marginTop: spacing.xs,
   },
+  emptyIconCircle: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: colors.backgroundAlt,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: spacing.sm,
+  },
   emptyTitle: { fontSize: 16, fontWeight: "700", color: colors.text },
   emptyBody: { fontSize: 13, color: colors.textMuted, textAlign: "center", marginTop: 4, marginBottom: spacing.lg },
   uploadFirstBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
     backgroundColor: colors.primary,
     paddingHorizontal: spacing.xl,
     paddingVertical: spacing.md,
@@ -539,21 +621,26 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     ...shadows.sm,
   },
-  recordIconBox: {
-    width: 38,
-    height: 38,
-    borderRadius: radius.md,
-    backgroundColor: colors.background,
-    alignItems: "center",
-    justifyContent: "center",
-  },
   recordTitle: { fontSize: 14, fontWeight: "700", color: colors.text },
   recordSub: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
   aiStatusBadge: {
-    backgroundColor: colors.primaryLight,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
     paddingHorizontal: spacing.sm + 2,
     paddingVertical: 3,
     borderRadius: radius.full,
   },
-  aiStatusText: { fontSize: 11, fontWeight: "700", color: colors.primaryDark },
+  aiBadgeDone: {
+    backgroundColor: colors.successLight,
+  },
+  aiBadgeProcessing: {
+    backgroundColor: colors.warningLight,
+  },
+  aiStatusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  aiStatusText: { fontSize: 11, fontWeight: "700" },
 });

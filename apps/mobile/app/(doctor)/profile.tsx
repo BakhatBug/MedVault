@@ -1,4 +1,5 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { ScreenContainer } from "../../components/ScreenContainer";
 import { useAuth } from "../../lib/auth-context";
 import { API_URL } from "../../lib/config";
@@ -35,7 +36,8 @@ export default function DoctorProfileScreen() {
           <Text style={styles.doctorName}>{user.fullName ?? "Physician"}</Text>
           <View style={styles.badgeRow}>
             <View style={styles.verifiedPill}>
-              <Text style={styles.verifiedText}>✓ VERIFIED CLINICIAN</Text>
+              <Ionicons name="checkmark-circle" size={12} color={colors.primaryDark} style={{ marginRight: 3 }} />
+              <Text style={styles.verifiedText}>VERIFIED CLINICIAN</Text>
             </View>
           </View>
         </View>
@@ -54,9 +56,11 @@ export default function DoctorProfileScreen() {
       <Text style={styles.sectionHeader}>AI CLINICAL PROTOCOLS</Text>
       <View style={styles.card}>
         <View style={styles.aiProtocolRow}>
-          <Text style={styles.aiProtocolEmoji}>🧠</Text>
+          <View style={styles.aiIconBox}>
+            <Ionicons name="sparkles" size={20} color={colors.aiDark} />
+          </View>
           <View style={{ flex: 1 }}>
-            <Text style={styles.aiProtocolTitle}>FHIR + Gemini 1.5 Clinical Engine</Text>
+            <Text style={styles.aiProtocolTitle}>FHIR R4 + Gemini 2.5 Clinical Engine</Text>
             <Text style={styles.aiProtocolSub}>
               All chart summaries, lab analyses, and drug conflict detections cite original diagnostic source documents.
             </Text>
@@ -75,6 +79,7 @@ export default function DoctorProfileScreen() {
         onPress={() => void signOut()}
         style={({ pressed }) => [styles.signOut, pressed && { opacity: 0.85 }]}
       >
+        <Ionicons name="log-out-outline" size={18} color={colors.danger} style={{ marginRight: 6 }} />
         <Text style={styles.signOutText}>Sign Out of Clinical Portal</Text>
       </Pressable>
 
@@ -126,9 +131,9 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   avatarCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: radius.full,
+    width: 58,
+    height: 58,
+    borderRadius: 29,
     backgroundColor: colors.primaryLight,
     borderWidth: 2,
     borderColor: colors.primary,
@@ -138,105 +143,72 @@ const styles = StyleSheet.create({
   avatarText: {
     color: colors.primary,
     fontWeight: "800",
-    fontSize: 22,
-    letterSpacing: 0.5,
+    fontSize: 20,
   },
-  doctorName: {
-    fontSize: 18,
-    fontWeight: "800",
-    color: colors.text,
-    letterSpacing: -0.3,
-  },
-  badgeRow: {
+  doctorName: { fontSize: 18, fontWeight: "800", color: colors.text, letterSpacing: -0.3 },
+  badgeRow: { flexDirection: "row", marginTop: 4 },
+  verifiedPill: {
     flexDirection: "row",
     alignItems: "center",
-    marginTop: spacing.xs,
-  },
-  verifiedPill: {
-    backgroundColor: colors.successLight,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 3,
+    backgroundColor: colors.primaryLight,
+    paddingHorizontal: spacing.sm + 2,
+    paddingVertical: 2,
     borderRadius: radius.full,
-    borderWidth: 1,
-    borderColor: "#A7F3D0",
   },
-  verifiedText: {
-    color: colors.successDark,
-    fontSize: 10,
-    fontWeight: "800",
-    letterSpacing: 0.4,
-  },
+  verifiedText: { fontSize: 10, fontWeight: "800", color: colors.primaryDark, letterSpacing: 0.5 },
   sectionHeader: {
     fontSize: 11,
-    fontWeight: "700",
+    fontWeight: "800",
     color: colors.textMuted,
-    letterSpacing: 0.8,
+    letterSpacing: 0.6,
     marginBottom: spacing.xs + 2,
-    marginLeft: 2,
+    marginTop: spacing.sm,
   },
   card: {
     backgroundColor: colors.surface,
-    borderRadius: radius.lg,
+    borderRadius: radius.xl,
     paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
     borderWidth: 1,
     borderColor: colors.border,
     marginBottom: spacing.lg,
     ...shadows.sm,
   },
   field: {
-    paddingVertical: spacing.md - 2,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: colors.borderLight,
   },
-  fieldLabel: {
-    color: colors.textMuted,
-    fontSize: 12,
-    fontWeight: "500",
-    marginBottom: 3,
-  },
-  fieldValue: {
-    color: colors.text,
-    fontSize: 15,
-    fontWeight: "600",
-  },
+  fieldLabel: { fontSize: 13, color: colors.textMuted, fontWeight: "500" },
+  fieldValue: { fontSize: 14, fontWeight: "600", color: colors.text, maxWidth: "60%" },
   aiProtocolRow: {
     flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: spacing.md - 2,
+    alignItems: "flex-start",
+    paddingVertical: spacing.md,
     gap: spacing.md,
   },
-  aiProtocolEmoji: {
-    fontSize: 22,
+  aiIconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: radius.md,
+    backgroundColor: colors.aiLight,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  aiProtocolTitle: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: colors.text,
-  },
-  aiProtocolSub: {
-    fontSize: 12,
-    color: colors.textMuted,
-    marginTop: 2,
-    lineHeight: 16,
-  },
+  aiProtocolTitle: { fontSize: 13, fontWeight: "700", color: colors.text },
+  aiProtocolSub: { fontSize: 12, color: colors.textMuted, marginTop: 2, lineHeight: 17 },
   signOut: {
-    marginTop: spacing.md,
-    borderRadius: radius.lg,
+    flexDirection: "row",
     backgroundColor: colors.dangerLight,
     paddingVertical: spacing.md + 2,
+    borderRadius: radius.lg,
     alignItems: "center",
+    justifyContent: "center",
     borderWidth: 1,
-    borderColor: "#FECACA",
+    borderColor: colors.dangerBorder,
   },
-  signOutText: {
-    color: colors.danger,
-    fontWeight: "700",
-    fontSize: 15,
-  },
-  muted: {
-    color: colors.textMuted,
-    fontSize: 14,
-  },
+  signOutText: { color: colors.dangerText, fontWeight: "700", fontSize: 14 },
+  muted: { color: colors.textMuted, fontSize: 13 },
 });
-

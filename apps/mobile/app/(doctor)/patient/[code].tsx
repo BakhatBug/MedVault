@@ -1,3 +1,5 @@
+import { Feather, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useState } from "react";
 import {
@@ -10,6 +12,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { MedicalIcon } from "../../../components/MedicalIcon";
 import { RecordDetailModal } from "../../../components/RecordDetailModal";
 import {
   type Medication,
@@ -33,14 +36,19 @@ const SEVERITY_CONFIG: Record<string, { bg: string; fg: string; border: string }
   minor: { bg: colors.successLight, fg: colors.successText, border: colors.successBorder },
 };
 
-const CATEGORIES: Array<{ key: string; label: string; icon: string }> = [
-  { key: "ALL", label: "All Folders", icon: "📁" },
-  { key: "PRESCRIPTION", label: "Prescriptions", icon: "💊" },
-  { key: "LAB_RESULT", label: "Labs & Tests", icon: "🧪" },
-  { key: "IMAGING", label: "Imaging & Scans", icon: "🩻" },
-  { key: "DISCHARGE_SUMMARY", label: "Discharge", icon: "📋" },
-  { key: "CONSULTATION_NOTE", label: "Doctor Notes", icon: "📝" },
-  { key: "VACCINATION", label: "Vaccines", icon: "💉" },
+const CATEGORIES: Array<{
+  key: string;
+  label: string;
+  iconFamily: "Ionicons" | "MaterialCommunityIcons";
+  iconName: string;
+}> = [
+  { key: "ALL", label: "All Folders", iconFamily: "Ionicons", iconName: "folder-open-outline" },
+  { key: "PRESCRIPTION", label: "Prescriptions", iconFamily: "MaterialCommunityIcons", iconName: "pill" },
+  { key: "LAB_RESULT", label: "Labs & Tests", iconFamily: "Ionicons", iconName: "flask-outline" },
+  { key: "IMAGING", label: "Imaging & Scans", iconFamily: "MaterialCommunityIcons", iconName: "radiology-box-outline" },
+  { key: "DISCHARGE_SUMMARY", label: "Discharge", iconFamily: "Ionicons", iconName: "document-text-outline" },
+  { key: "CONSULTATION_NOTE", label: "Doctor Notes", iconFamily: "Ionicons", iconName: "clipboard-outline" },
+  { key: "VACCINATION", label: "Vaccines", iconFamily: "MaterialCommunityIcons", iconName: "needle" },
 ];
 
 const STATUS_CONFIG: Record<string, { label: string; bg: string; fg: string; dot: string }> = {
@@ -125,7 +133,8 @@ export default function PatientDetailScreen() {
                 <Text style={styles.patientCode}>{profile.data.patientCode}</Text>
               </View>
               <View style={styles.accessBadge}>
-                <Text style={styles.accessBadgeText}>Access Granted ✓</Text>
+                <Ionicons name="shield-checkmark" size={12} color={colors.successText} style={{ marginRight: 3 }} />
+                <Text style={styles.accessBadgeText}>Access Granted</Text>
               </View>
             </View>
 
@@ -145,10 +154,10 @@ export default function PatientDetailScreen() {
         <View style={styles.aiSectionCard}>
           <View style={styles.sectionHead}>
             <View style={styles.aiBadgeTitle}>
-              <Text style={{ fontSize: 20 }}>✨</Text>
-              <View>
-                <Text style={styles.aiCardTitle}>AI Longitudinal Clinical Summary</Text>
-                <Text style={styles.aiCardSub}>Synthesized across entire medical vault history</Text>
+              <MedicalIcon type="AI" size={32} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.aiCardTitle}>AI Longitudinal Summary</Text>
+                <Text style={styles.aiCardSub}>Synthesized across medical vault history</Text>
               </View>
             </View>
             <Pressable
@@ -156,15 +165,21 @@ export default function PatientDetailScreen() {
               disabled={refreshSummary.isPending || !code}
               style={({ pressed }) => [styles.refreshBtn, pressed && { opacity: 0.85 }]}
             >
+              <Ionicons
+                name={refreshSummary.isPending ? "hourglass-outline" : summaryData?.cached ? "refresh" : "flash"}
+                size={12}
+                color={colors.aiDark}
+                style={{ marginRight: 4 }}
+              />
               <Text style={styles.refreshText}>
-                {refreshSummary.isPending ? "Generating…" : summaryData?.cached ? "🔄 Refresh AI" : "⚡ Generate AI"}
+                {refreshSummary.isPending ? "Generating…" : summaryData?.cached ? "Refresh AI" : "Generate AI"}
               </Text>
             </Pressable>
           </View>
 
           {summary.isLoading ? (
             <View style={styles.loadingAiRow}>
-              <ActivityIndicator color={colors.ai} />
+              <ActivityIndicator color={colors.ai} size="small" />
               <Text style={styles.aiLoadingText}>Synthesizing clinical timeline & diagnostic records…</Text>
             </View>
           ) : summary.error ? (
@@ -185,7 +200,16 @@ export default function PatientDetailScreen() {
             }
             style={({ pressed }) => [styles.askButton, pressed && { opacity: 0.9 }]}
           >
-            <Text style={styles.askButtonText}>💬 Ask AI Assistant About This Patient →</Text>
+            <LinearGradient
+              colors={[colors.ai, colors.aiDark]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.askButtonGradient}
+            >
+              <Ionicons name="chatbubbles" size={17} color="#FFFFFF" style={{ marginRight: 6 }} />
+              <Text style={styles.askButtonText}>Consult AI Assistant on Patient</Text>
+              <Feather name="arrow-right" size={16} color="#FFFFFF" style={{ marginLeft: 6 }} />
+            </LinearGradient>
           </Pressable>
         </View>
 
@@ -193,7 +217,7 @@ export default function PatientDetailScreen() {
         {interactionList.length > 0 ? (
           <View style={styles.alertBlock}>
             <View style={styles.alertHeaderRow}>
-              <Text style={{ fontSize: 18 }}>⚠️</Text>
+              <Ionicons name="warning" size={18} color={colors.danger} />
               <Text style={styles.alertHeader}>Drug Interaction Alerts ({interactionList.length})</Text>
             </View>
             {interactionList.map((i, idx) => {
@@ -239,13 +263,28 @@ export default function PatientDetailScreen() {
           >
             {CATEGORIES.map((c) => {
               const isSelected = selectedCategory === c.key;
+              const iconColor = isSelected ? colors.primaryText : colors.textMuted;
               return (
                 <Pressable
                   key={c.key}
                   onPress={() => setSelectedCategory(c.key)}
                   style={[styles.categoryPill, isSelected && styles.categoryPillActive]}
                 >
-                  <Text style={{ fontSize: 13, marginRight: 4 }}>{c.icon}</Text>
+                  {c.iconFamily === "MaterialCommunityIcons" ? (
+                    <MaterialCommunityIcons
+                      name={c.iconName as any}
+                      size={14}
+                      color={iconColor}
+                      style={{ marginRight: 4 }}
+                    />
+                  ) : (
+                    <Ionicons
+                      name={c.iconName as any}
+                      size={14}
+                      color={iconColor}
+                      style={{ marginRight: 4 }}
+                    />
+                  )}
                   <Text style={[styles.categoryText, isSelected && styles.categoryTextActive]}>
                     {c.label}
                   </Text>
@@ -257,7 +296,10 @@ export default function PatientDetailScreen() {
           {records.isLoading ? (
             <ActivityIndicator color={colors.primary} />
           ) : (records.data?.items.length ?? 0) === 0 ? (
-            <Text style={styles.muted}>No documents found in this folder.</Text>
+            <View style={styles.emptyFolderBox}>
+              <Ionicons name="folder-open-outline" size={32} color={colors.textMuted} />
+              <Text style={styles.muted}>No documents found in this folder.</Text>
+            </View>
           ) : (
             records.data!.items.map((r) => {
               const status = STATUS_CONFIG[r.aiStatus] ?? {
@@ -266,16 +308,6 @@ export default function PatientDetailScreen() {
                 fg: colors.textMuted,
                 dot: "#94A3B8",
               };
-              const catIcon =
-                r.category === "PRESCRIPTION"
-                  ? "💊"
-                  : r.category === "LAB_RESULT"
-                  ? "🧪"
-                  : r.category === "IMAGING"
-                  ? "🩻"
-                  : r.category === "DISCHARGE_SUMMARY"
-                  ? "📋"
-                  : "📄";
 
               return (
                 <Pressable
@@ -284,15 +316,19 @@ export default function PatientDetailScreen() {
                   style={({ pressed }) => [styles.recordRow, pressed && styles.rowPressed]}
                 >
                   <View style={styles.recordRowHeader}>
-                    <View style={styles.docIconBox}>
-                      <Text style={{ fontSize: 18 }}>{catIcon}</Text>
-                    </View>
+                    <MedicalIcon type={r.category as any} size={40} />
                     <View style={{ flex: 1 }}>
                       <Text style={styles.rowTitle}>{r.title}</Text>
-                      <Text style={styles.rowSub}>
-                        {r.category.replace(/_/g, " ").toLowerCase()} · 📅{" "}
-                        {new Date(r.uploadedAt).toLocaleDateString()}
-                      </Text>
+                      <View style={styles.rowSubRow}>
+                        <Text style={styles.rowSubCategory}>
+                          {r.category.replace(/_/g, " ").toLowerCase()}
+                        </Text>
+                        <Text style={styles.rowSubDot}>·</Text>
+                        <Ionicons name="calendar-outline" size={11} color={colors.textMuted} />
+                        <Text style={styles.rowSubDate}>
+                          {new Date(r.uploadedAt).toLocaleDateString()}
+                        </Text>
+                      </View>
                     </View>
                     <View style={[styles.badge, { backgroundColor: status.bg }]}>
                       <View style={[styles.statusDot, { backgroundColor: status.dot }]} />
@@ -300,8 +336,11 @@ export default function PatientDetailScreen() {
                     </View>
                   </View>
                   <View style={styles.recordMetaRow}>
-                    <Text style={styles.inspectHint}>Extracted into structured FHIR resources</Text>
-                    <Text style={styles.inspectText}>Inspect AI Data →</Text>
+                    <Text style={styles.inspectHint}>Structured FHIR observations available</Text>
+                    <View style={styles.inspectLink}>
+                      <Text style={styles.inspectText}>Inspect AI Data</Text>
+                      <Feather name="chevron-right" size={13} color={colors.primary} />
+                    </View>
                   </View>
                 </Pressable>
               );
@@ -320,7 +359,10 @@ export default function PatientDetailScreen() {
             timeline.data!.items.slice(0, 20).map((e: TimelineEvent) => (
               <View key={e.id} style={styles.timelineRow}>
                 <View style={styles.timelineDot} />
-                <Text style={styles.timelineDate}>{e.occurredAt.slice(0, 10)}</Text>
+                <View style={styles.timelineDateCol}>
+                  <Ionicons name="calendar-outline" size={11} color={colors.primary} />
+                  <Text style={styles.timelineDate}>{e.occurredAt.slice(0, 10)}</Text>
+                </View>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.timelineTitle}>{e.title}</Text>
                   {e.description ? <Text style={styles.timelineSub}>{e.description}</Text> : null}
@@ -361,7 +403,7 @@ function renderMedList(items: Medication[], heading: string) {
       {items.map((m) => (
         <View key={m.id} style={styles.medCard}>
           <View style={styles.medIconBox}>
-            <Text style={{ fontSize: 16 }}>💊</Text>
+            <MaterialCommunityIcons name="pill" size={16} color={colors.primary} />
           </View>
           <View style={{ flex: 1 }}>
             <Text style={styles.medTitle}>
@@ -410,6 +452,8 @@ const styles = StyleSheet.create({
   patientName: { fontSize: 20, fontWeight: "800", color: colors.text, letterSpacing: -0.3 },
   patientCode: { color: colors.primaryDark, fontSize: 12, marginTop: 2, fontWeight: "700" },
   accessBadge: {
+    flexDirection: "row",
+    alignItems: "center",
     backgroundColor: colors.successLight,
     paddingHorizontal: spacing.md,
     paddingVertical: 4,
@@ -448,6 +492,8 @@ const styles = StyleSheet.create({
   loadingAiRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingVertical: spacing.md },
   aiLoadingText: { color: colors.aiDark, fontSize: 13, fontWeight: "600" },
   refreshBtn: {
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: spacing.md,
     paddingVertical: 6,
     backgroundColor: colors.surface,
@@ -460,11 +506,16 @@ const styles = StyleSheet.create({
   summaryText: { color: colors.text, fontSize: 14, lineHeight: 22, fontWeight: "400" },
   disclaimer: { color: colors.textMuted, fontSize: 11, marginTop: spacing.sm, fontStyle: "italic" },
   askButton: {
-    backgroundColor: colors.ai,
     borderRadius: radius.lg,
-    paddingVertical: spacing.md + 2,
-    alignItems: "center",
+    overflow: "hidden",
     ...shadows.sm,
+  },
+  askButtonGradient: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: spacing.md + 2,
+    paddingHorizontal: spacing.lg,
   },
   askButtonText: { color: colors.surface, fontWeight: "800", fontSize: 14 },
   alertBlock: {
@@ -518,7 +569,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: radius.md,
-    backgroundColor: colors.background,
+    backgroundColor: colors.primaryLight,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -556,26 +607,22 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     gap: spacing.md,
   },
-  docIconBox: {
-    width: 40,
-    height: 40,
-    borderRadius: radius.md,
-    backgroundColor: colors.background,
-    alignItems: "center",
-    justifyContent: "center",
-  },
   rowTitle: { color: colors.text, fontWeight: "700", fontSize: 14 },
-  rowSub: { color: colors.textMuted, fontSize: 12, marginTop: 2 },
+  rowSubRow: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 3 },
+  rowSubCategory: { color: colors.textMuted, fontSize: 12, textTransform: "capitalize" },
+  rowSubDot: { color: colors.textMuted, fontSize: 12 },
+  rowSubDate: { color: colors.textMuted, fontSize: 12 },
   recordMetaRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     marginTop: spacing.sm,
-    paddingTop: spacing.xs,
+    paddingTop: spacing.xs + 2,
     borderTopWidth: 1,
     borderTopColor: colors.borderLight,
   },
   inspectHint: { fontSize: 11, color: colors.textMuted },
+  inspectLink: { flexDirection: "row", alignItems: "center", gap: 2 },
   inspectText: { color: colors.primary, fontSize: 12, fontWeight: "700" },
   badge: {
     flexDirection: "row",
@@ -587,6 +634,16 @@ const styles = StyleSheet.create({
   },
   statusDot: { width: 6, height: 6, borderRadius: 3 },
   badgeText: { fontSize: 11, fontWeight: "700" },
+  emptyFolderBox: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.xl,
+    padding: spacing.xl,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: colors.border,
+    gap: spacing.xs,
+  },
   timelineRow: {
     flexDirection: "row",
     alignItems: "flex-start",
@@ -599,13 +656,19 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   timelineDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
     backgroundColor: colors.primary,
-    marginTop: 4,
+    marginTop: 6,
   },
-  timelineDate: { color: colors.textMuted, fontSize: 12, fontWeight: "700", width: 80 },
+  timelineDateCol: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    width: 90,
+  },
+  timelineDate: { color: colors.primaryDark, fontSize: 12, fontWeight: "700" },
   timelineTitle: { color: colors.text, fontWeight: "700", fontSize: 14 },
   timelineSub: { color: colors.textMuted, fontSize: 12, marginTop: 2 },
   muted: { color: colors.textMuted, fontSize: 13, paddingVertical: spacing.xs },

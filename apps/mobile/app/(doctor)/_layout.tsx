@@ -1,5 +1,5 @@
 import { Tabs } from "expo-router";
-import { Text } from "react-native";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { colors } from "../../lib/theme";
 
 export default function DoctorLayout() {
@@ -25,7 +25,7 @@ export default function DoctorLayout() {
           backgroundColor: colors.surface,
           borderTopColor: colors.border,
           borderTopWidth: 1,
-          height: 60,
+          height: 62,
           paddingBottom: 8,
           paddingTop: 6,
           elevation: 2,
@@ -43,7 +43,11 @@ export default function DoctorLayout() {
           title: "Patient Lookup",
           tabBarLabel: "Search",
           tabBarIcon: ({ color, focused }) => (
-            <Text style={{ fontSize: 18, opacity: focused ? 1 : 0.7 }}>🔍</Text>
+            <Ionicons
+              name={focused ? "search" : "search-outline"}
+              size={22}
+              color={color}
+            />
           ),
         }}
       />
@@ -53,7 +57,11 @@ export default function DoctorLayout() {
           title: "Access Permissions",
           tabBarLabel: "Requests",
           tabBarIcon: ({ color, focused }) => (
-            <Text style={{ fontSize: 18, opacity: focused ? 1 : 0.7 }}>📋</Text>
+            <Ionicons
+              name={focused ? "shield-checkmark" : "shield-outline"}
+              size={22}
+              color={color}
+            />
           ),
         }}
       />
@@ -63,7 +71,11 @@ export default function DoctorLayout() {
           title: "Clinical Profile",
           tabBarLabel: "Profile",
           tabBarIcon: ({ color, focused }) => (
-            <Text style={{ fontSize: 18, opacity: focused ? 1 : 0.7 }}>👨‍⚕️</Text>
+            <MaterialCommunityIcons
+              name={focused ? "doctor" : "doctor"}
+              size={23}
+              color={color}
+            />
           ),
         }}
       />

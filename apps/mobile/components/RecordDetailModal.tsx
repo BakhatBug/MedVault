@@ -10,6 +10,8 @@ import {
   Text,
   View,
 } from "react-native";
+import { Ionicons, MaterialCommunityIcons, Feather } from "@expo/vector-icons";
+import { MedicalIcon } from "./MedicalIcon";
 import { type RecordDetail, useReprocessRecord } from "../lib/queries";
 import { colors, radius, shadows, spacing } from "../lib/theme";
 
@@ -120,27 +122,14 @@ export function RecordDetailModal({
     }
   }
 
-  const catIcon =
-    record?.category === "PRESCRIPTION"
-      ? "💊"
-      : record?.category === "LAB_RESULT"
-      ? "🧪"
-      : record?.category === "IMAGING"
-      ? "🩻"
-      : record?.category === "DISCHARGE_SUMMARY"
-      ? "📋"
-      : "📄";
-
   return (
     <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
       <View style={styles.backdrop}>
         <View style={styles.modalBox}>
           {/* Header */}
           <View style={styles.modalHeader}>
-            <View style={styles.headerIconBox}>
-              <Text style={{ fontSize: 22 }}>{catIcon}</Text>
-            </View>
-            <View style={{ flex: 1, paddingRight: spacing.sm }}>
+            <MedicalIcon category={record?.category ?? "OTHER"} size={44} />
+            <View style={{ flex: 1, paddingRight: spacing.sm, marginLeft: spacing.sm }}>
               <Text style={styles.title} numberOfLines={2}>
                 {record?.title ?? "Document Details"}
               </Text>
@@ -150,7 +139,7 @@ export function RecordDetailModal({
               </Text>
             </View>
             <Pressable onPress={onClose} style={styles.closeBtn}>
-              <Text style={styles.closeBtnText}>✕</Text>
+              <Ionicons name="close" size={20} color={colors.textSecondary} />
             </Pressable>
           </View>
 
@@ -212,7 +201,7 @@ export function RecordDetailModal({
                 <View style={styles.aiCardHeader}>
                   <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
                     <View style={styles.aiTitleRow}>
-                      <Text style={{ fontSize: 16 }}>✨</Text>
+                      <Ionicons name="sparkles" size={16} color={colors.aiDark} />
                       <Text style={styles.aiCardTitle}>AI Extracted Clinical Entities</Text>
                     </View>
                     <Pressable
@@ -220,8 +209,14 @@ export function RecordDetailModal({
                       disabled={reprocessing || reprocess.isPending}
                       style={({ pressed }) => [styles.reprocessBtn, pressed && { opacity: 0.7 }]}
                     >
+                      <Ionicons
+                        name="refresh-outline"
+                        size={12}
+                        color={colors.aiDark}
+                        style={{ marginRight: 3 }}
+                      />
                       <Text style={styles.reprocessBtnText}>
-                        {reprocessing || reprocess.isPending ? "⚡ Reprocessing…" : "⚡ Re-analyze"}
+                        {reprocessing || reprocess.isPending ? "Reprocessing…" : "Re-analyze"}
                       </Text>
                     </Pressable>
                   </View>
@@ -229,7 +224,8 @@ export function RecordDetailModal({
                 </View>
 
                 {!hasEntities ? (
-                  <View style={{ alignItems: "center", paddingVertical: spacing.sm }}>
+                  <View style={{ alignItems: "center", paddingVertical: spacing.md }}>
+                    <Ionicons name="document-text-outline" size={28} color={colors.textMuted} style={{ marginBottom: 4 }} />
                     <Text style={styles.emptyText}>
                       {record?.aiStatus === "COMPLETED"
                         ? "No discrete entities (medications, conditions, observations) were detected in this document."
@@ -241,8 +237,9 @@ export function RecordDetailModal({
                         disabled={reprocessing || reprocess.isPending}
                         style={({ pressed }) => [styles.retryAiBtn, pressed && { opacity: 0.85 }]}
                       >
+                        <Ionicons name="sparkles" size={14} color="#FFFFFF" style={{ marginRight: 4 }} />
                         <Text style={styles.retryAiBtnText}>
-                          {reprocessing || reprocess.isPending ? "Analyzing document with AI…" : "🔄 Re-run AI Extraction"}
+                          {reprocessing || reprocess.isPending ? "Analyzing document with AI…" : "Re-run AI Extraction"}
                         </Text>
                       </Pressable>
                     ) : null}
@@ -253,7 +250,7 @@ export function RecordDetailModal({
                 {conditions.length > 0 ? (
                   <View style={styles.entityGroup}>
                     <View style={styles.groupHeaderRow}>
-                      <Text style={styles.groupIcon}>🩺</Text>
+                      <Ionicons name="pulse" size={16} color={colors.primaryDark} />
                       <Text style={styles.groupLabel}>Diagnoses & Conditions ({conditions.length})</Text>
                     </View>
                     {conditions.map((c, i) => (
@@ -273,7 +270,7 @@ export function RecordDetailModal({
                 {medications.length > 0 ? (
                   <View style={styles.entityGroup}>
                     <View style={styles.groupHeaderRow}>
-                      <Text style={styles.groupIcon}>💊</Text>
+                      <MaterialCommunityIcons name="pill" size={16} color="#2563EB" />
                       <Text style={styles.groupLabel}>Prescribed Medications ({medications.length})</Text>
                     </View>
                     {medications.map((m, i) => (
@@ -291,7 +288,7 @@ export function RecordDetailModal({
                 {observations.length > 0 ? (
                   <View style={styles.entityGroup}>
                     <View style={styles.groupHeaderRow}>
-                      <Text style={styles.groupIcon}>🧪</Text>
+                      <MaterialCommunityIcons name="flask-outline" size={16} color="#059669" />
                       <Text style={styles.groupLabel}>Biomarkers & Lab Readings ({observations.length})</Text>
                     </View>
                     {observations.map((o, i) => (
@@ -314,7 +311,7 @@ export function RecordDetailModal({
                 {allergies.length > 0 ? (
                   <View style={styles.entityGroup}>
                     <View style={styles.groupHeaderRow}>
-                      <Text style={styles.groupIcon}>⚠️</Text>
+                      <Ionicons name="alert-circle" size={16} color={colors.danger} />
                       <Text style={[styles.groupLabel, { color: colors.dangerText }]}>
                         Documented Allergies ({allergies.length})
                       </Text>
@@ -322,7 +319,7 @@ export function RecordDetailModal({
                     {allergies.map((a, i) => (
                       <View key={i} style={[styles.entityCard, { borderColor: colors.dangerBorder }]}>
                         <Text style={[styles.entityTitle, { color: colors.dangerText }]}>
-                          ⚠️ {a.substance}
+                          {a.substance}
                         </Text>
                       </View>
                     ))}
@@ -333,7 +330,7 @@ export function RecordDetailModal({
                 {immunizations.length > 0 ? (
                   <View style={styles.entityGroup}>
                     <View style={styles.groupHeaderRow}>
-                      <Text style={styles.groupIcon}>💉</Text>
+                      <MaterialCommunityIcons name="needle" size={16} color="#7C3AED" />
                       <Text style={styles.groupLabel}>Immunizations ({immunizations.length})</Text>
                     </View>
                     {immunizations.map((im, i) => (
@@ -353,8 +350,9 @@ export function RecordDetailModal({
                     disabled={loadingViewUrl}
                     style={({ pressed }) => [styles.viewDocBtn, pressed && { opacity: 0.85 }]}
                   >
+                    <Feather name="external-link" size={15} color={colors.primaryText} style={{ marginRight: 4 }} />
                     <Text style={styles.viewDocBtnText}>
-                      {loadingViewUrl ? "Opening Document…" : "View Original Document ↗"}
+                      {loadingViewUrl ? "Opening Document…" : "View Original Document"}
                     </Text>
                   </Pressable>
                 ) : null}
@@ -389,32 +387,24 @@ const styles = StyleSheet.create({
     padding: spacing.md,
   },
   modalBox: {
-    width: "100%",
-    maxWidth: 620,
-    maxHeight: "92%",
     backgroundColor: colors.surface,
     borderRadius: radius.xxl,
+    width: "100%",
+    maxWidth: 580,
+    maxHeight: "88%",
     overflow: "hidden",
     ...shadows.xl,
   },
   modalHeader: {
     flexDirection: "row",
     alignItems: "center",
-    padding: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
-    backgroundColor: colors.surface,
-    gap: spacing.md,
   },
-  headerIconBox: {
-    width: 44,
-    height: 44,
-    borderRadius: radius.lg,
-    backgroundColor: colors.background,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  title: { fontSize: 17, fontWeight: "800", color: colors.text, letterSpacing: -0.3 },
+  title: { fontSize: 16, fontWeight: "800", color: colors.text },
   sub: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
   closeBtn: {
     width: 34,
@@ -424,50 +414,55 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  closeBtnText: { fontSize: 13, color: colors.textMuted, fontWeight: "700" },
-  loadingContainer: { padding: spacing.xxxl, alignItems: "center", gap: spacing.md },
-  loadingText: { color: colors.textMuted, fontSize: 14, fontWeight: "500" },
-  scrollContent: { padding: spacing.lg, gap: spacing.md },
+  loadingContainer: { padding: spacing.xxl, alignItems: "center", gap: spacing.sm },
+  loadingText: { color: colors.textMuted, fontSize: 13 },
+  scrollContent: { padding: spacing.lg },
   statusCard: {
     backgroundColor: colors.backgroundAlt,
-    padding: spacing.md,
     borderRadius: radius.lg,
+    padding: spacing.md,
+    marginBottom: spacing.md,
   },
   statusRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   statusBadge: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: spacing.md,
-    paddingVertical: 5,
+    paddingHorizontal: spacing.sm + 2,
+    paddingVertical: 4,
     borderRadius: radius.full,
-    gap: 6,
+    gap: 5,
   },
-  statusDot: { width: 6, height: 6, borderRadius: 3 },
   statusBadgeDone: { backgroundColor: colors.successLight },
   statusBadgePending: { backgroundColor: colors.warningLight },
+  statusDot: { width: 7, height: 7, borderRadius: 4 },
   statusBadgeText: { fontSize: 12, fontWeight: "700" },
   statusBadgeTextDone: { color: colors.successText },
   statusBadgeTextPending: { color: colors.warningText },
   sizeText: { fontSize: 12, color: colors.textMuted, fontWeight: "600" },
-  notesSection: { backgroundColor: colors.backgroundAlt, padding: spacing.md, borderRadius: radius.lg },
-  sectionTitle: { fontSize: 13, fontWeight: "700", color: colors.text, marginBottom: 4 },
-  notesText: { fontSize: 13, color: colors.textSecondary, lineHeight: 18 },
+  notesSection: {
+    backgroundColor: colors.backgroundAlt,
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+  },
+  sectionTitle: { fontSize: 11, fontWeight: "800", color: colors.textMuted, letterSpacing: 0.5, marginBottom: 4 },
+  notesText: { fontSize: 13, color: colors.text, lineHeight: 18 },
   aiCard: {
     backgroundColor: colors.aiLight,
     borderRadius: radius.xl,
-    padding: spacing.lg,
+    padding: spacing.md,
     borderWidth: 1,
     borderColor: colors.aiBorder,
+    marginBottom: spacing.md,
   },
   aiCardHeader: { marginBottom: spacing.md },
-  aiTitleRow: { flexDirection: "row", alignItems: "center", gap: 6 },
-  aiCardTitle: { fontSize: 15, fontWeight: "800", color: colors.aiDark },
-  aiCardSub: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
-  emptyText: { fontSize: 13, color: colors.textMuted, fontStyle: "italic", paddingVertical: spacing.sm },
-  entityGroup: { marginTop: spacing.md, paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: colors.aiBorder },
-  groupHeaderRow: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: spacing.sm },
-  groupIcon: { fontSize: 14 },
-  groupLabel: { fontSize: 13, fontWeight: "700", color: colors.text },
+  aiTitleRow: { flexDirection: "row", alignItems: "center", gap: 5 },
+  aiCardTitle: { fontSize: 14, fontWeight: "800", color: colors.aiDark },
+  aiCardSub: { fontSize: 11, color: colors.textSecondary, marginTop: 2 },
+  emptyText: { fontSize: 12, color: colors.textMuted, textAlign: "center", lineHeight: 17, paddingHorizontal: spacing.md },
+  entityGroup: { marginTop: spacing.md },
+  groupHeaderRow: { flexDirection: "row", alignItems: "center", gap: 5, marginBottom: spacing.xs },
+  groupLabel: { fontSize: 12, fontWeight: "800", color: colors.textSecondary, letterSpacing: 0.3 },
   entityCard: {
     backgroundColor: colors.surface,
     padding: spacing.md,
@@ -510,10 +505,12 @@ const styles = StyleSheet.create({
   actionRow: { flexDirection: "row", gap: spacing.md, marginTop: spacing.md },
   viewDocBtn: {
     flex: 1,
+    flexDirection: "row",
     backgroundColor: colors.primary,
     paddingVertical: spacing.md + 2,
     borderRadius: radius.lg,
     alignItems: "center",
+    justifyContent: "center",
     ...shadows.sm,
   },
   viewDocBtnText: { color: colors.primaryText, fontWeight: "700", fontSize: 14 },
@@ -525,10 +522,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     alignItems: "center",
+    justifyContent: "center",
   },
   doneBtnText: { color: colors.text, fontWeight: "700", fontSize: 14 },
   reprocessBtn: {
-    backgroundColor: colors.aiLight,
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: colors.surface,
     paddingHorizontal: spacing.sm + 4,
     paddingVertical: 4,
     borderRadius: radius.full,
@@ -541,15 +541,17 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   retryAiBtn: {
+    flexDirection: "row",
+    alignItems: "center",
     marginTop: spacing.sm,
-    backgroundColor: colors.primary,
+    backgroundColor: colors.ai,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm + 2,
     borderRadius: radius.md,
     ...shadows.sm,
   },
   retryAiBtnText: {
-    color: colors.primaryText,
+    color: "#FFFFFF",
     fontWeight: "700",
     fontSize: 13,
   },

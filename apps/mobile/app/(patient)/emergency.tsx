@@ -14,6 +14,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import QRCode from "react-native-qrcode-svg";
+import { Ionicons, MaterialCommunityIcons, Feather } from "@expo/vector-icons";
 import { useAuth } from "../../lib/auth-context";
 import { API_URL, API_PREFIX } from "../../lib/config";
 import {
@@ -66,7 +67,9 @@ export default function EmergencyScreen() {
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         {/* Paramedic Notice Banner */}
         <View style={styles.banner}>
-          <Text style={{ fontSize: 24 }}>🚑</Text>
+          <View style={styles.bannerIconBox}>
+            <MaterialCommunityIcons name="ambulance" size={24} color="#DC2626" />
+          </View>
           <View style={{ flex: 1 }}>
             <Text style={styles.bannerTitle}>Paramedic & First Responder Access</Text>
             <Text style={styles.bannerSub}>
@@ -102,7 +105,8 @@ export default function EmergencyScreen() {
               onPress={previewEmergencyPage}
               style={({ pressed }) => [styles.previewBtn, pressed && { opacity: 0.85 }]}
             >
-              <Text style={styles.previewBtnText}>Open Public Emergency Telemetry ↗</Text>
+              <Feather name="external-link" size={15} color="#FFFFFF" style={{ marginRight: 6 }} />
+              <Text style={styles.previewBtnText}>Open Public Emergency Page</Text>
             </Pressable>
           ) : null}
         </View>
@@ -122,7 +126,7 @@ export default function EmergencyScreen() {
         ) : disclosure.data ? (
           <View style={styles.toggleCard}>
             <ToggleRow
-              icon="🩸"
+              icon={<MaterialCommunityIcons name="water" size={22} color="#DC2626" />}
               label="Blood Type"
               desc="Discloses ABO/Rh blood group"
               value={disclosure.data.disclosure.bloodType}
@@ -130,7 +134,7 @@ export default function EmergencyScreen() {
               onToggle={() => toggle("bloodType", disclosure.data!.disclosure.bloodType)}
             />
             <ToggleRow
-              icon="⚠️"
+              icon={<Ionicons name="alert-circle" size={22} color={colors.warning} />}
               label="Documented Allergies"
               desc="Severe drug & substance allergies"
               value={disclosure.data.disclosure.allergies}
@@ -138,7 +142,7 @@ export default function EmergencyScreen() {
               onToggle={() => toggle("allergies", disclosure.data!.disclosure.allergies)}
             />
             <ToggleRow
-              icon="💊"
+              icon={<MaterialCommunityIcons name="pill" size={22} color="#2563EB" />}
               label="Active Medications"
               desc="Current active prescriptions"
               value={disclosure.data.disclosure.currentMedications}
@@ -148,7 +152,7 @@ export default function EmergencyScreen() {
               }
             />
             <ToggleRow
-              icon="📞"
+              icon={<Ionicons name="call" size={20} color="#059669" />}
               label="Emergency Contacts"
               desc="Next of kin & primary care contact"
               value={disclosure.data.disclosure.emergencyContact}
@@ -174,7 +178,7 @@ function ToggleRow({
   onToggle,
   isLast = false,
 }: {
-  icon: string;
+  icon: React.ReactNode;
   label: string;
   desc: string;
   value: boolean;
@@ -184,7 +188,7 @@ function ToggleRow({
 }) {
   return (
     <View style={[styles.toggleRow, !isLast && styles.toggleBorder]}>
-      <Text style={{ fontSize: 20 }}>{icon}</Text>
+      <View style={styles.toggleIconBox}>{icon}</View>
       <View style={{ flex: 1, paddingRight: spacing.sm }}>
         <Text style={styles.toggleLabel}>{label}</Text>
         <Text style={styles.toggleDesc}>{desc}</Text>
@@ -205,24 +209,31 @@ function ToggleRow({
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
-  scroll: { padding: spacing.lg, paddingBottom: spacing.xxxl },
+  scroll: { padding: spacing.lg, paddingBottom: spacing.xxl },
   banner: {
     backgroundColor: colors.dangerLight,
     borderRadius: radius.xl,
     padding: spacing.lg,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.md,
     borderWidth: 1,
     borderColor: colors.dangerBorder,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: spacing.md,
     marginBottom: spacing.lg,
-    ...shadows.sm,
   },
-  bannerTitle: { fontSize: 15, fontWeight: "800", color: colors.dangerText },
-  bannerSub: { fontSize: 12, color: colors.textSecondary, marginTop: 2, lineHeight: 16 },
+  bannerIconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.surface,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  bannerTitle: { fontSize: 14, fontWeight: "700", color: colors.dangerText },
+  bannerSub: { fontSize: 12, color: colors.textSecondary, marginTop: 3, lineHeight: 17 },
   qrCard: {
     backgroundColor: colors.surface,
-    borderRadius: radius.xxl,
+    borderRadius: radius.xl,
     padding: spacing.xl,
     alignItems: "center",
     borderWidth: 1,
@@ -236,48 +247,59 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: colors.borderLight,
+    marginBottom: spacing.md,
   },
   codePill: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: colors.backgroundAlt,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: 6,
-    borderRadius: radius.full,
-    marginTop: spacing.md,
-    gap: 6,
-  },
-  codePillLabel: { fontSize: 11, fontWeight: "700", color: colors.textMuted },
-  codePillValue: { fontSize: 13, fontWeight: "800", color: colors.text, letterSpacing: 0.5 },
-  previewBtn: {
-    marginTop: spacing.md,
+    gap: spacing.xs,
     backgroundColor: colors.primaryLight,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm + 2,
-    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs + 2,
+    borderRadius: radius.full,
+    marginBottom: spacing.md,
   },
-  previewBtnText: { color: colors.primaryDark, fontSize: 12, fontWeight: "700" },
+  codePillLabel: { fontSize: 11, fontWeight: "800", color: colors.primaryDark, letterSpacing: 0.5 },
+  codePillValue: { fontSize: 12, fontWeight: "700", color: colors.primaryDark },
+  previewBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: colors.primary,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderRadius: radius.lg,
+    ...shadows.sm,
+  },
+  previewBtnText: { color: colors.primaryText, fontWeight: "700", fontSize: 13 },
   sectionHeaderRow: { marginBottom: spacing.sm },
   sectionTitle: { fontSize: 16, fontWeight: "800", color: colors.text },
   sectionSub: { fontSize: 12, color: colors.textMuted, marginTop: 1 },
   toggleCard: {
     backgroundColor: colors.surface,
     borderRadius: radius.xl,
+    paddingHorizontal: spacing.lg,
     borderWidth: 1,
     borderColor: colors.border,
-    paddingHorizontal: spacing.lg,
     ...shadows.sm,
   },
   toggleRow: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: spacing.md + 2,
+    paddingVertical: spacing.md,
     gap: spacing.md,
+  },
+  toggleIconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: radius.md,
+    backgroundColor: colors.backgroundAlt,
+    alignItems: "center",
+    justifyContent: "center",
   },
   toggleBorder: { borderBottomWidth: 1, borderBottomColor: colors.borderLight },
   toggleLabel: { fontSize: 14, fontWeight: "700", color: colors.text },
-  toggleDesc: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
-  spinner: { padding: spacing.xl, alignItems: "center" },
+  toggleDesc: { fontSize: 11, color: colors.textMuted, marginTop: 2 },
+  spinner: { padding: spacing.xxl, alignItems: "center" },
   muted: { color: colors.textMuted, fontSize: 13 },
   error: { color: colors.danger, fontSize: 13 },
 });

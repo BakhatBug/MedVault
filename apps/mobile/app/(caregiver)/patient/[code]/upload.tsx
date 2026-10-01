@@ -1,3 +1,4 @@
+import { Feather, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useQueryClient } from "@tanstack/react-query";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import * as DocumentPicker from "expo-document-picker";
@@ -28,15 +29,20 @@ import {
 
 type PickedFile = Pick<UploadInput, "uri" | "mimeType"> & { name: string };
 
-const CATEGORIES: Array<{ value: RecordCategory; label: string; icon: string }> = [
-  { value: "PRESCRIPTION", label: "Prescription", icon: "💊" },
-  { value: "LAB_RESULT", label: "Lab result", icon: "🧪" },
-  { value: "IMAGING", label: "Imaging / Scan", icon: "🩻" },
-  { value: "DISCHARGE_SUMMARY", label: "Discharge", icon: "📋" },
-  { value: "CONSULTATION_NOTE", label: "Doctor Note", icon: "📝" },
-  { value: "VACCINATION", label: "Vaccine", icon: "💉" },
-  { value: "INSURANCE", label: "Insurance", icon: "🛡️" },
-  { value: "OTHER", label: "Other", icon: "📄" },
+const CATEGORIES: Array<{
+  value: RecordCategory;
+  label: string;
+  iconFamily: "Ionicons" | "MaterialCommunityIcons";
+  iconName: string;
+}> = [
+  { value: "PRESCRIPTION", label: "Prescription", iconFamily: "MaterialCommunityIcons", iconName: "pill" },
+  { value: "LAB_RESULT", label: "Lab result", iconFamily: "Ionicons", iconName: "flask-outline" },
+  { value: "IMAGING", label: "Imaging / Scan", iconFamily: "MaterialCommunityIcons", iconName: "radiology-box-outline" },
+  { value: "DISCHARGE_SUMMARY", label: "Discharge", iconFamily: "Ionicons", iconName: "document-text-outline" },
+  { value: "CONSULTATION_NOTE", label: "Doctor Note", iconFamily: "Ionicons", iconName: "clipboard-outline" },
+  { value: "VACCINATION", label: "Vaccine", iconFamily: "MaterialCommunityIcons", iconName: "needle" },
+  { value: "INSURANCE", label: "Insurance", iconFamily: "Ionicons", iconName: "shield-checkmark-outline" },
+  { value: "OTHER", label: "Other", iconFamily: "Ionicons", iconName: "folder-outline" },
 ];
 
 export default function CaregiverUploadScreen() {
@@ -148,13 +154,13 @@ export default function CaregiverUploadScreen() {
                   style={({ pressed }) => [styles.pickerCard, pressed && { opacity: 0.92 }]}
                 >
                   <View style={[styles.pickerIconCircle, { backgroundColor: "#E0F2FE" }]}>
-                    <Text style={styles.pickerEmoji}>📷</Text>
+                    <Ionicons name="camera-outline" size={24} color="#0284C7" />
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.pickerTitle}>Take Clinical Photo</Text>
                     <Text style={styles.pickerSubtitle}>Capture prescription labels, test kits, or discharge papers</Text>
                   </View>
-                  <Text style={styles.chevron}>›</Text>
+                  <Feather name="chevron-right" size={18} color={colors.textMuted} />
                 </Pressable>
 
                 <Pressable
@@ -162,13 +168,13 @@ export default function CaregiverUploadScreen() {
                   style={({ pressed }) => [styles.pickerCard, pressed && { opacity: 0.92 }]}
                 >
                   <View style={[styles.pickerIconCircle, { backgroundColor: "#CCFBF1" }]}>
-                    <Text style={styles.pickerEmoji}>🖼️</Text>
+                    <Ionicons name="images-outline" size={24} color="#0D9488" />
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.pickerTitle}>Choose from Photos</Text>
                     <Text style={styles.pickerSubtitle}>Select scans or photos from photo gallery</Text>
                   </View>
-                  <Text style={styles.chevron}>›</Text>
+                  <Feather name="chevron-right" size={18} color={colors.textMuted} />
                 </Pressable>
 
                 <Pressable
@@ -176,13 +182,13 @@ export default function CaregiverUploadScreen() {
                   style={({ pressed }) => [styles.pickerCard, pressed && { opacity: 0.92 }]}
                 >
                   <View style={[styles.pickerIconCircle, { backgroundColor: "#EDE9FE" }]}>
-                    <Text style={styles.pickerEmoji}>📄</Text>
+                    <Ionicons name="document-text-outline" size={24} color="#7C3AED" />
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.pickerTitle}>Upload PDF Document</Text>
                     <Text style={styles.pickerSubtitle}>Lab reports, discharge summaries, or clinical letters</Text>
                   </View>
-                  <Text style={styles.chevron}>›</Text>
+                  <Feather name="chevron-right" size={18} color={colors.textMuted} />
                 </Pressable>
               </View>
             </View>
@@ -194,7 +200,7 @@ export default function CaregiverUploadScreen() {
                   <Image source={{ uri: file.uri }} style={styles.previewImage} resizeMode="cover" />
                 ) : (
                   <View style={styles.previewPdf}>
-                    <Text style={styles.previewPdfIcon}>📑</Text>
+                    <Ionicons name="document-text-outline" size={32} color={colors.primaryDark} />
                     <Text style={styles.previewPdfText}>PDF</Text>
                   </View>
                 )}
@@ -203,8 +209,12 @@ export default function CaregiverUploadScreen() {
                     {file.name}
                   </Text>
                   <Text style={styles.fileMime}>{file.mimeType}</Text>
-                  <Pressable onPress={() => setFile(null)} style={{ marginTop: spacing.xs }}>
-                    <Text style={styles.changeLink}>↺ Change file</Text>
+                  <Pressable
+                    onPress={() => setFile(null)}
+                    style={{ flexDirection: "row", alignItems: "center", marginTop: spacing.xs, gap: 4 }}
+                  >
+                    <Ionicons name="reload-outline" size={12} color={colors.primary} />
+                    <Text style={styles.changeLink}>Change file</Text>
                   </Pressable>
                 </View>
               </View>
@@ -225,6 +235,7 @@ export default function CaregiverUploadScreen() {
               <View style={styles.chipsGrid}>
                 {CATEGORIES.map((c) => {
                   const selected = c.value === category;
+                  const iconColor = selected ? colors.primaryText : colors.textSecondary;
                   return (
                     <Pressable
                       key={c.value}
@@ -232,7 +243,11 @@ export default function CaregiverUploadScreen() {
                       disabled={submitting}
                       style={[styles.chip, selected && styles.chipSelected]}
                     >
-                      <Text style={styles.chipIcon}>{c.icon}</Text>
+                      {c.iconFamily === "MaterialCommunityIcons" ? (
+                        <MaterialCommunityIcons name={c.iconName as any} size={14} color={iconColor} />
+                      ) : (
+                        <Ionicons name={c.iconName as any} size={14} color={iconColor} />
+                      )}
                       <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{c.label}</Text>
                     </Pressable>
                   );
@@ -241,7 +256,8 @@ export default function CaregiverUploadScreen() {
 
               {error ? (
                 <View style={styles.errorBox}>
-                  <Text style={styles.errorText}>⚠️ {error}</Text>
+                  <Ionicons name="alert-circle" size={16} color={colors.danger} style={{ marginRight: 4 }} />
+                  <Text style={styles.errorText}>{error}</Text>
                 </View>
               ) : null}
 

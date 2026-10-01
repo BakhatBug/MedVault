@@ -11,6 +11,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Ionicons, MaterialCommunityIcons, Feather } from "@expo/vector-icons";
 import { ApiError } from "../../lib/api";
 import {
   type AccessDurationChoice,
@@ -119,7 +120,9 @@ export default function AccessScreen() {
       >
         {/* Privacy Banner */}
         <View style={styles.privacyCard}>
-          <Text style={{ fontSize: 24 }}>🔒</Text>
+          <View style={styles.privacyIconBox}>
+            <Ionicons name="shield-checkmark" size={24} color={colors.primaryDark} />
+          </View>
           <View style={{ flex: 1 }}>
             <Text style={styles.privacyTitle}>Zero-Trust Privacy Control</Text>
             <Text style={styles.privacySub}>
@@ -141,7 +144,7 @@ export default function AccessScreen() {
                 <View key={p.id} style={styles.requestCard}>
                   <View style={styles.docHeader}>
                     <View style={styles.docAvatar}>
-                      <Text style={{ fontSize: 18 }}>👨‍⚕️</Text>
+                      <MaterialCommunityIcons name="doctor" size={22} color={colors.primaryDark} />
                     </View>
                     <View style={{ flex: 1 }}>
                       <Text style={styles.docName}>{docName}</Text>
@@ -187,7 +190,10 @@ export default function AccessScreen() {
                       {isBusy ? (
                         <ActivityIndicator color={colors.primaryText} size="small" />
                       ) : (
-                        <Text style={styles.approveBtnText}>Approve Access</Text>
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+                          <Ionicons name="checkmark-circle-outline" size={16} color="#FFFFFF" />
+                          <Text style={styles.approveBtnText}>Approve Access</Text>
+                        </View>
                       )}
                     </Pressable>
                     <Pressable
@@ -208,7 +214,10 @@ export default function AccessScreen() {
         <View style={{ marginTop: spacing.xl }}>
           <Text style={styles.sectionTitle}>Active Doctor Access ({active.length})</Text>
           {active.length === 0 ? (
-            <Text style={styles.muted}>No doctors currently have access to your vault.</Text>
+            <View style={styles.emptyCard}>
+              <Ionicons name="shield-outline" size={28} color={colors.textMuted} style={{ marginBottom: 4 }} />
+              <Text style={styles.muted}>No doctors currently have active access to your vault.</Text>
+            </View>
           ) : (
             active.map((g) => {
               const docName = g.doctor.doctorProfile?.fullName || "Licensed Physician";
@@ -218,7 +227,7 @@ export default function AccessScreen() {
                 <View key={g.id} style={styles.activeCard}>
                   <View style={styles.activeHeader}>
                     <View style={styles.docAvatarActive}>
-                      <Text style={{ fontSize: 18 }}>👨‍⚕️</Text>
+                      <MaterialCommunityIcons name="doctor" size={22} color={colors.primaryDark} />
                     </View>
                     <View style={{ flex: 1 }}>
                       <Text style={styles.docName}>{docName}</Text>
@@ -249,11 +258,17 @@ export default function AccessScreen() {
               return (
                 <View key={h.id} style={styles.historyRow}>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.historyDoc}>{h.doctor.doctorProfile?.fullName || "Doctor"}</Text>
-                    <Text style={styles.historyDate}>{new Date(h.createdAt).toLocaleDateString()}</Text>
+                    <Text style={styles.historyName}>
+                      {h.doctor.doctorProfile?.fullName || "Licensed Physician"}
+                    </Text>
+                    <Text style={styles.historyMeta}>
+                      Requested {formatDate(h.createdAt)}
+                    </Text>
                   </View>
                   <View style={[styles.historyBadge, { backgroundColor: statusCfg.bg }]}>
-                    <Text style={[styles.historyBadgeText, { color: statusCfg.fg }]}>{statusCfg.label}</Text>
+                    <Text style={[styles.historyBadgeText, { color: statusCfg.fg }]}>
+                      {statusCfg.label}
+                    </Text>
                   </View>
                 </View>
               );
@@ -266,26 +281,35 @@ export default function AccessScreen() {
 }
 
 function formatDate(iso: string): string {
-  const d = new Date(iso);
-  if (!Number.isFinite(d.getTime())) return iso;
-  return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+  try {
+    return new Date(iso).toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" });
+  } catch {
+    return iso;
+  }
 }
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
-  scroll: { padding: spacing.lg, paddingBottom: spacing.xxxl },
+  scroll: { padding: spacing.lg, paddingBottom: spacing.xxl },
   privacyCard: {
     backgroundColor: colors.primaryLight,
     borderRadius: radius.xl,
     padding: spacing.lg,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.md,
     borderWidth: 1,
     borderColor: colors.primaryMuted,
-    ...shadows.sm,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: spacing.md,
   },
-  privacyTitle: { fontSize: 15, fontWeight: "800", color: colors.primaryDark },
+  privacyIconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.surface,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  privacyTitle: { fontSize: 14, fontWeight: "700", color: colors.primaryDark },
   privacySub: { fontSize: 12, color: colors.textSecondary, marginTop: 2, lineHeight: 16 },
   sectionTitle: { fontSize: 16, fontWeight: "800", color: colors.text, marginBottom: spacing.sm },
   requestCard: {
@@ -293,20 +317,20 @@ const styles = StyleSheet.create({
     borderRadius: radius.xl,
     padding: spacing.lg,
     borderWidth: 1,
-    borderColor: colors.warningBorder,
+    borderColor: colors.border,
     marginBottom: spacing.md,
     ...shadows.sm,
   },
-  docHeader: { flexDirection: "row", alignItems: "center", gap: spacing.md },
+  docHeader: { flexDirection: "row", alignItems: "center", gap: spacing.md, marginBottom: spacing.md },
   docAvatar: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: colors.warningLight,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.primaryLight,
     alignItems: "center",
     justifyContent: "center",
   },
-  docName: { fontSize: 16, fontWeight: "800", color: colors.text },
+  docName: { fontSize: 15, fontWeight: "700", color: colors.text },
   docSpecialty: { fontSize: 12, color: colors.textMuted, marginTop: 1 },
   pendingBadge: {
     backgroundColor: colors.warningLight,
@@ -318,50 +342,50 @@ const styles = StyleSheet.create({
   noteBox: {
     backgroundColor: colors.backgroundAlt,
     padding: spacing.md,
-    borderRadius: radius.lg,
-    marginTop: spacing.md,
+    borderRadius: radius.md,
+    marginBottom: spacing.md,
   },
   noteLabel: { fontSize: 11, fontWeight: "700", color: colors.textMuted },
-  noteText: { fontSize: 13, color: colors.text, marginTop: 2, fontStyle: "italic" },
-  durLabel: { fontSize: 12, fontWeight: "700", color: colors.text, marginTop: spacing.md, marginBottom: spacing.xs },
-  durationRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.xs },
+  noteText: { fontSize: 13, color: colors.textSecondary, marginTop: 2, fontStyle: "italic" },
+  durLabel: { fontSize: 12, fontWeight: "700", color: colors.textSecondary, marginBottom: spacing.xs + 2 },
+  durationRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.xs + 2, marginBottom: spacing.lg },
   durChip: {
-    backgroundColor: colors.backgroundAlt,
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.md,
+    paddingVertical: spacing.xs + 2,
+    borderRadius: radius.full,
     borderWidth: 1,
     borderColor: colors.border,
+    backgroundColor: colors.backgroundAlt,
   },
-  durChipActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  durChipText: { fontSize: 12, fontWeight: "700", color: colors.textMuted },
-  durChipTextActive: { color: colors.primaryText },
-  actionRow: { flexDirection: "row", gap: spacing.md, marginTop: spacing.lg },
+  durChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  durChipText: { fontSize: 12, fontWeight: "600", color: colors.textSecondary },
+  durChipTextActive: { color: colors.primaryText, fontWeight: "700" },
+  actionRow: { flexDirection: "row", gap: spacing.md },
   approveBtn: {
     flex: 1,
     backgroundColor: colors.primary,
     paddingVertical: spacing.md,
     borderRadius: radius.lg,
     alignItems: "center",
+    justifyContent: "center",
+    ...shadows.sm,
   },
-  approveBtnText: { color: colors.primaryText, fontWeight: "800", fontSize: 14 },
+  approveBtnText: { color: colors.primaryText, fontWeight: "700", fontSize: 13 },
   denyBtn: {
-    paddingHorizontal: spacing.xl,
+    paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
     borderRadius: radius.lg,
-    backgroundColor: colors.dangerLight,
+    backgroundColor: colors.backgroundAlt,
     borderWidth: 1,
-    borderColor: colors.dangerBorder,
+    borderColor: colors.border,
     alignItems: "center",
+    justifyContent: "center",
   },
-  denyBtnText: { color: colors.dangerText, fontWeight: "800", fontSize: 14 },
+  denyBtnText: { color: colors.dangerText, fontWeight: "700", fontSize: 13 },
   activeCard: {
     backgroundColor: colors.surface,
     borderRadius: radius.xl,
-    padding: spacing.md + 2,
+    padding: spacing.md,
     borderWidth: 1,
     borderColor: colors.border,
     marginBottom: spacing.sm,
@@ -372,33 +396,39 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: colors.successLight,
+    backgroundColor: colors.primaryLight,
     alignItems: "center",
     justifyContent: "center",
   },
-  activeMeta: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
+  activeMeta: { fontSize: 11, color: colors.textMuted, marginTop: 2 },
   revokeBtn: {
     backgroundColor: colors.dangerLight,
     paddingHorizontal: spacing.md,
-    paddingVertical: 6,
+    paddingVertical: spacing.xs + 2,
     borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.dangerBorder,
   },
   revokeBtnText: { color: colors.dangerText, fontWeight: "700", fontSize: 12 },
-  historyRow: {
+  emptyCard: {
     backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: spacing.md,
-    marginBottom: spacing.xs,
-    flexDirection: "row",
+    padding: spacing.xl,
+    borderRadius: radius.xl,
     alignItems: "center",
     borderWidth: 1,
-    borderColor: colors.borderLight,
+    borderColor: colors.border,
   },
-  historyDoc: { fontSize: 13, fontWeight: "700", color: colors.text },
-  historyDate: { fontSize: 11, color: colors.textMuted, marginTop: 2 },
-  historyBadge: { paddingHorizontal: spacing.sm, paddingVertical: 2, borderRadius: radius.full },
-  historyBadgeText: { fontSize: 10, fontWeight: "700" },
   muted: { color: colors.textMuted, fontSize: 13 },
+  historyRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderLight,
+  },
+  historyName: { fontSize: 14, fontWeight: "600", color: colors.text },
+  historyMeta: { fontSize: 11, color: colors.textMuted, marginTop: 2 },
+  historyBadge: { paddingHorizontal: spacing.sm + 2, paddingVertical: 2, borderRadius: radius.full },
+  historyBadgeText: { fontSize: 10, fontWeight: "700" },
 });

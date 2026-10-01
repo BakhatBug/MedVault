@@ -14,6 +14,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Ionicons, MaterialCommunityIcons, Feather } from "@expo/vector-icons";
 import { ApiError } from "../../lib/api";
 import { useAuth } from "../../lib/auth-context";
 import { useOutgoingAccess, useRequestAccess, useSearchPatients } from "../../lib/queries";
@@ -88,14 +89,15 @@ export default function DoctorDashboard() {
           <View style={styles.headerCard}>
             <View style={styles.headerRow}>
               <View style={styles.avatar}>
-                <Text style={styles.avatarText}>👨‍⚕️</Text>
+                <MaterialCommunityIcons name="doctor" size={24} color={colors.primaryDark} />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.welcomeText}>Clinical Workspace</Text>
                 <Text style={styles.docName}>{docName}</Text>
               </View>
               <View style={styles.verifiedBadge}>
-                <Text style={styles.verifiedText}>Verified MD ✓</Text>
+                <Ionicons name="checkmark-circle" size={13} color={colors.primaryDark} />
+                <Text style={styles.verifiedText}>Verified MD</Text>
               </View>
             </View>
           </View>
@@ -103,7 +105,9 @@ export default function DoctorDashboard() {
           {/* Patient Lookup Card */}
           <View style={styles.lookupCard}>
             <View style={styles.cardHeaderRow}>
-              <Text style={{ fontSize: 18 }}>🔍</Text>
+              <View style={styles.searchIconBox}>
+                <Ionicons name="search" size={18} color={colors.primaryDark} />
+              </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.cardTitle}>Patient Record Search & Lookup</Text>
                 <Text style={styles.cardSubtitle}>
@@ -141,6 +145,9 @@ export default function DoctorDashboard() {
                 ) : (
                   searchResults.data!.items.map((pt) => (
                     <View key={pt.patientCode} style={styles.searchResultRow}>
+                      <View style={styles.patientAvatarSmall}>
+                        <Ionicons name="person-outline" size={16} color={colors.primaryDark} />
+                      </View>
                       <View style={{ flex: 1 }}>
                         <Text style={styles.searchResultName}>{pt.fullName}</Text>
                         <Text style={styles.searchResultCode}>{pt.patientCode}</Text>
@@ -156,7 +163,8 @@ export default function DoctorDashboard() {
                           }
                           style={styles.openChartSmallBtn}
                         >
-                          <Text style={styles.openChartSmallText}>Open Chart ›</Text>
+                          <Text style={styles.openChartSmallText}>Open Chart</Text>
+                          <Feather name="chevron-right" size={12} color={colors.primaryDark} />
                         </Pressable>
                       ) : pt.hasPendingAccess ? (
                         <View style={styles.pendingBadgeSmall}>
@@ -219,7 +227,7 @@ export default function DoctorDashboard() {
               onPress={() => router.push("/(doctor)/requests")}
               style={({ pressed }) => [styles.pendingCard, pressed && { opacity: 0.9 }]}
             >
-              <Text style={{ fontSize: 16 }}>⏳</Text>
+              <Ionicons name="time-outline" size={18} color={colors.warningText} />
               <Text style={styles.pendingText}>
                 {pendingGrants.length} access {pendingGrants.length === 1 ? "request is" : "requests are"} waiting for
                 patient approval.
@@ -241,7 +249,9 @@ export default function DoctorDashboard() {
             </View>
           ) : activeGrants.length === 0 ? (
             <View style={styles.emptyCard}>
-              <Text style={{ fontSize: 32, marginBottom: spacing.xs }}>📋</Text>
+              <View style={styles.emptyIconCircle}>
+                <Ionicons name="people-outline" size={32} color={colors.textMuted} />
+              </View>
               <Text style={styles.emptyTitle}>No Active Patients</Text>
               <Text style={styles.emptySub}>
                 Enter a Patient ID above to request access. Once the patient approves in their app, their chart will
@@ -249,41 +259,34 @@ export default function DoctorDashboard() {
               </Text>
             </View>
           ) : (
-            activeGrants.map((g) => {
-              const initials = g.patient.fullName
-                .split(" ")
-                .map((n) => n[0])
-                .join("")
-                .toUpperCase()
-                .slice(0, 2);
-
-              return (
-                <Pressable
-                  key={g.id}
-                  onPress={() =>
-                    router.push({
-                      pathname: "/(doctor)/patient/[code]",
-                      params: { code: g.patient.patientCode },
-                    })
-                  }
-                  style={({ pressed }) => [styles.patientCard, pressed && styles.patientCardPressed]}
-                >
-                  <View style={styles.patientAvatar}>
-                    <Text style={styles.patientAvatarText}>{initials}</Text>
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.patientName}>{g.patient.fullName}</Text>
-                    <Text style={styles.patientCode}>{g.patient.patientCode}</Text>
-                    <Text style={styles.patientMeta}>
-                      {g.expiresAt ? `Access active until ${formatDate(g.expiresAt)}` : "Permanent clinical access"}
-                    </Text>
-                  </View>
-                  <View style={styles.openChartBtn}>
-                    <Text style={styles.openChartBtnText}>Chart →</Text>
-                  </View>
-                </Pressable>
-              );
-            })
+            activeGrants.map((grant) => (
+              <Pressable
+                key={grant.id}
+                onPress={() =>
+                  router.push({
+                    pathname: "/(doctor)/patient/[code]",
+                    params: { code: grant.patient?.patientCode ?? "" },
+                  })
+                }
+                style={({ pressed }) => [styles.patientCard, pressed && { opacity: 0.9 }]}
+              >
+                <View style={styles.patientAvatarCircle}>
+                  <Ionicons name="person" size={20} color={colors.primary} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.patientName}>{grant.patient?.fullName ?? "Anonymous Patient"}</Text>
+                  <Text style={styles.patientCode}>{grant.patient?.patientCode}</Text>
+                  <Text style={styles.patientMeta}>
+                    Granted {new Date(grant.createdAt).toLocaleDateString()}
+                    {grant.expiresAt ? ` · Expires ${new Date(grant.expiresAt).toLocaleDateString()}` : " · Indefinite"}
+                  </Text>
+                </View>
+                <View style={styles.openChartBtn}>
+                  <Text style={styles.openChartText}>Open Chart</Text>
+                  <Feather name="chevron-right" size={14} color={colors.primaryDark} />
+                </View>
+              </Pressable>
+            ))
           )}
         </ScrollView>
       </KeyboardAvoidingView>
@@ -291,15 +294,9 @@ export default function DoctorDashboard() {
   );
 }
 
-function formatDate(iso: string): string {
-  const d = new Date(iso);
-  if (!Number.isFinite(d.getTime())) return iso;
-  return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
-}
-
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
-  scroll: { padding: spacing.lg, paddingBottom: spacing.xxxl },
+  scroll: { padding: spacing.lg, paddingBottom: spacing.xxl },
   headerCard: {
     backgroundColor: colors.surface,
     borderRadius: radius.xl,
@@ -314,22 +311,24 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: colors.backgroundAlt,
+    backgroundColor: colors.primaryLight,
     alignItems: "center",
     justifyContent: "center",
   },
-  avatarText: { fontSize: 22 },
   welcomeText: { fontSize: 12, color: colors.textMuted, fontWeight: "500" },
   docName: { fontSize: 18, fontWeight: "800", color: colors.text, letterSpacing: -0.3 },
   verifiedBadge: {
-    backgroundColor: colors.successLight,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: colors.primaryLight,
     paddingHorizontal: spacing.sm + 2,
     paddingVertical: 4,
     borderRadius: radius.full,
     borderWidth: 1,
-    borderColor: colors.successBorder,
+    borderColor: colors.primaryMuted,
   },
-  verifiedText: { fontSize: 11, fontWeight: "700", color: colors.successText },
+  verifiedText: { fontSize: 11, fontWeight: "700", color: colors.primaryDark },
   lookupCard: {
     backgroundColor: colors.surface,
     borderRadius: radius.xl,
@@ -339,26 +338,34 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
     ...shadows.sm,
   },
-  cardHeaderRow: { flexDirection: "row", alignItems: "flex-start", gap: spacing.sm },
-  cardTitle: { fontSize: 16, fontWeight: "800", color: colors.text },
+  cardHeaderRow: { flexDirection: "row", alignItems: "center", gap: spacing.md },
+  searchIconBox: {
+    width: 38,
+    height: 38,
+    borderRadius: radius.md,
+    backgroundColor: colors.primaryLight,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  cardTitle: { fontSize: 15, fontWeight: "700", color: colors.text },
   cardSubtitle: { fontSize: 12, color: colors.textMuted, marginTop: 2, lineHeight: 16 },
-  inputLabel: { fontSize: 12, fontWeight: "700", color: colors.text, marginBottom: 4 },
+  inputLabel: { fontSize: 12, fontWeight: "600", color: colors.textSecondary, marginBottom: 4 },
   input: {
+    backgroundColor: colors.backgroundAlt,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: radius.md,
+    borderRadius: radius.lg,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
-    fontSize: 15,
+    fontSize: 14,
     color: colors.text,
-    backgroundColor: colors.background,
   },
-  notesInput: { minHeight: 56, textAlignVertical: "top" },
+  notesInput: { minHeight: 60, textAlignVertical: "top" },
   submitBtn: {
     marginTop: spacing.md,
     backgroundColor: colors.primary,
     borderRadius: radius.lg,
-    paddingVertical: spacing.md + 2,
+    paddingVertical: spacing.md,
     alignItems: "center",
     ...shadows.sm,
   },
@@ -367,55 +374,59 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: colors.warningLight,
-    padding: spacing.md,
     borderRadius: radius.lg,
+    padding: spacing.md,
     borderWidth: 1,
     borderColor: colors.warningBorder,
     marginBottom: spacing.md,
     gap: spacing.sm,
   },
   pendingText: { flex: 1, fontSize: 12, color: colors.warningText, fontWeight: "600" },
-  pendingLink: { fontSize: 13, color: colors.warningText, fontWeight: "700" },
+  pendingLink: { fontSize: 12, fontWeight: "700", color: colors.warningText },
   sectionHeaderRow: { marginTop: spacing.md, marginBottom: spacing.sm },
   sectionTitle: { fontSize: 16, fontWeight: "800", color: colors.text },
   sectionSub: { fontSize: 12, color: colors.textMuted, marginTop: 1 },
-  loadingBox: { padding: spacing.xl, alignItems: "center", gap: spacing.xs },
+  loadingBox: { padding: spacing.xl, alignItems: "center" },
+  muted: { color: colors.textMuted, fontSize: 13 },
   emptyCard: {
     backgroundColor: colors.surface,
     borderRadius: radius.xl,
-    padding: spacing.xxl,
+    padding: spacing.xl,
     alignItems: "center",
     borderWidth: 1,
     borderColor: colors.border,
-    marginTop: spacing.xs,
-    ...shadows.sm,
   },
-  emptyTitle: { fontSize: 16, fontWeight: "700", color: colors.text },
-  emptySub: { fontSize: 13, color: colors.textMuted, textAlign: "center", marginTop: 4, paddingHorizontal: spacing.md },
-  patientCard: {
-    flexDirection: "row",
+  emptyIconCircle: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: colors.backgroundAlt,
     alignItems: "center",
+    justifyContent: "center",
+    marginBottom: spacing.sm,
+  },
+  emptyTitle: { fontSize: 15, fontWeight: "700", color: colors.text },
+  emptySub: { fontSize: 12, color: colors.textMuted, textAlign: "center", marginTop: 4, lineHeight: 17 },
+  patientCard: {
     backgroundColor: colors.surface,
-    borderRadius: radius.xl,
-    padding: spacing.md + 2,
+    borderRadius: radius.lg,
+    padding: spacing.md,
     marginBottom: spacing.sm,
     borderWidth: 1,
     borderColor: colors.border,
+    flexDirection: "row",
+    alignItems: "center",
     gap: spacing.md,
     ...shadows.sm,
   },
-  patientCardPressed: { backgroundColor: colors.backgroundAlt },
-  patientAvatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+  patientAvatarCircle: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     backgroundColor: colors.primaryLight,
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 1,
-    borderColor: colors.primaryMuted,
   },
-  patientAvatarText: { fontSize: 15, fontWeight: "800", color: colors.primaryDark },
   patientName: { color: colors.text, fontWeight: "700", fontSize: 15 },
   patientCode: { color: colors.primaryDark, fontSize: 12, marginTop: 2, fontWeight: "600" },
   patientMeta: { color: colors.textMuted, fontSize: 11, marginTop: 2 },
@@ -446,9 +457,20 @@ const styles = StyleSheet.create({
     marginBottom: 4,
     gap: spacing.sm,
   },
+  patientAvatarSmall: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: colors.primaryLight,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   searchResultName: { fontSize: 14, fontWeight: "700", color: colors.text },
   searchResultCode: { fontSize: 11, color: colors.primaryDark, fontWeight: "600", marginTop: 1 },
   openChartSmallBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
     backgroundColor: colors.primaryLight,
     paddingHorizontal: spacing.sm + 2,
     paddingVertical: 5,
@@ -470,11 +492,13 @@ const styles = StyleSheet.create({
   },
   requestAccessSmallText: { fontSize: 11, fontWeight: "700", color: colors.primaryText },
   openChartBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
     backgroundColor: colors.primaryLight,
     paddingHorizontal: spacing.md,
-    paddingVertical: 6,
+    paddingVertical: spacing.sm,
     borderRadius: radius.md,
   },
-  openChartBtnText: { color: colors.primaryDark, fontSize: 12, fontWeight: "700" },
-  muted: { color: colors.textMuted, fontSize: 13 },
+  openChartText: { color: colors.primaryDark, fontWeight: "700", fontSize: 12 },
 });

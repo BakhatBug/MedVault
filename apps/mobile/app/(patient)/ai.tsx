@@ -11,6 +11,8 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { LinearGradient } from "expo-linear-gradient";
+import { Ionicons, MaterialCommunityIcons, Feather } from "@expo/vector-icons";
 import { ApiError } from "../../lib/api";
 import { useMyHealthSummary, usePatientAskAi } from "../../lib/queries";
 import { colors, radius, shadows, spacing } from "../../lib/theme";
@@ -24,10 +26,26 @@ type ChatMessage = {
 };
 
 const SUGGESTED_PROMPTS = [
-  "🧪 Explain my latest lab results in simple terms",
-  "💊 Review my active medications and potential side effects",
-  "📊 Summarize my medical history and conditions",
-  "🩺 What should I ask my doctor at my next appointment?",
+  {
+    icon: "flask-outline",
+    family: "material",
+    text: "Explain my latest lab results in simple terms",
+  },
+  {
+    icon: "pill",
+    family: "material",
+    text: "Review my active medications and potential side effects",
+  },
+  {
+    icon: "pulse-outline",
+    family: "ionicons",
+    text: "Summarize my medical history and conditions",
+  },
+  {
+    icon: "help-circle-outline",
+    family: "ionicons",
+    text: "What should I ask my doctor at my next appointment?",
+  },
 ];
 
 export default function PatientAiScreen() {
@@ -75,7 +93,7 @@ export default function PatientAiScreen() {
       const errorMsg: ChatMessage = {
         id: `err-${Date.now()}`,
         sender: "ai",
-        text: `⚠️ ${msg}`,
+        text: msg,
         time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
       };
       setMessages((prev) => [...prev, errorMsg]);
@@ -87,9 +105,14 @@ export default function PatientAiScreen() {
       {/* Header Banner */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <View style={styles.aiBadgeCircle}>
-            <Text style={styles.aiBadgeEmoji}>🧠</Text>
-          </View>
+          <LinearGradient
+            colors={["#6366F1", "#4F46E5"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.aiBadgeCircle}
+          >
+            <Ionicons name="sparkles" size={18} color="#FFFFFF" />
+          </LinearGradient>
           <View>
             <Text style={styles.title}>AI Health Assistant</Text>
             <View style={styles.modelBadge}>
@@ -104,13 +127,23 @@ export default function PatientAiScreen() {
             onPress={() => setActiveTab("chat")}
             style={[styles.tabButton, activeTab === "chat" && styles.tabButtonActive]}
           >
-            <Text style={[styles.tabText, activeTab === "chat" && styles.tabTextActive]}>💬 Ask AI</Text>
+            <Ionicons
+              name={activeTab === "chat" ? "chatbubble-ellipses" : "chatbubble-ellipses-outline"}
+              size={15}
+              color={activeTab === "chat" ? colors.aiDark : colors.textMuted}
+            />
+            <Text style={[styles.tabText, activeTab === "chat" && styles.tabTextActive]}>Ask AI</Text>
           </Pressable>
           <Pressable
             onPress={() => setActiveTab("summary")}
             style={[styles.tabButton, activeTab === "summary" && styles.tabButtonActive]}
           >
-            <Text style={[styles.tabText, activeTab === "summary" && styles.tabTextActive]}>📋 Health Summary</Text>
+            <Ionicons
+              name={activeTab === "summary" ? "document-text" : "document-text-outline"}
+              size={15}
+              color={activeTab === "summary" ? colors.aiDark : colors.textMuted}
+            />
+            <Text style={[styles.tabText, activeTab === "summary" && styles.tabTextActive]}>Summary</Text>
           </Pressable>
         </View>
       </View>
@@ -130,15 +163,25 @@ export default function PatientAiScreen() {
             {/* Suggested Prompts */}
             {messages.length <= 1 ? (
               <View style={styles.suggestedContainer}>
-                <Text style={styles.suggestedHeading}>SUGGESTED INQUIRIES</Text>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 5, marginBottom: spacing.sm }}>
+                  <Ionicons name="bulb-outline" size={14} color={colors.aiDark} />
+                  <Text style={styles.suggestedHeading}>SUGGESTED INQUIRIES</Text>
+                </View>
                 <View style={styles.promptsGrid}>
-                  {SUGGESTED_PROMPTS.map((prompt, idx) => (
+                  {SUGGESTED_PROMPTS.map((p, idx) => (
                     <Pressable
                       key={idx}
-                      onPress={() => handleSend(prompt)}
+                      onPress={() => handleSend(p.text)}
                       style={({ pressed }) => [styles.promptCard, pressed && { opacity: 0.88 }]}
                     >
-                      <Text style={styles.promptCardText}>{prompt}</Text>
+                      <View style={styles.promptIconBox}>
+                        {p.family === "material" ? (
+                          <MaterialCommunityIcons name={p.icon as any} size={16} color={colors.aiDark} />
+                        ) : (
+                          <Ionicons name={p.icon as any} size={16} color={colors.aiDark} />
+                        )}
+                      </View>
+                      <Text style={styles.promptCardText}>{p.text}</Text>
                     </Pressable>
                   ))}
                 </View>
@@ -151,9 +194,14 @@ export default function PatientAiScreen() {
               return (
                 <View key={m.id} style={[styles.msgRow, isAi ? styles.msgRowAi : styles.msgRowUser]}>
                   {isAi ? (
-                    <View style={styles.avatarAi}>
-                      <Text style={styles.avatarEmoji}>🧠</Text>
-                    </View>
+                    <LinearGradient
+                      colors={["#6366F1", "#4F46E5"]}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                      style={styles.avatarAi}
+                    >
+                      <Ionicons name="sparkles" size={14} color="#FFFFFF" />
+                    </LinearGradient>
                   ) : null}
 
                   <View style={[styles.bubble, isAi ? styles.bubbleAi : styles.bubbleUser]}>
@@ -178,9 +226,14 @@ export default function PatientAiScreen() {
 
             {askAi.isPending ? (
               <View style={[styles.msgRow, styles.msgRowAi]}>
-                <View style={styles.avatarAi}>
-                  <Text style={styles.avatarEmoji}>🧠</Text>
-                </View>
+                <LinearGradient
+                  colors={["#6366F1", "#4F46E5"]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.avatarAi}
+                >
+                  <Ionicons name="sparkles" size={14} color="#FFFFFF" />
+                </LinearGradient>
                 <View style={[styles.bubble, styles.bubbleAi, styles.thinkingBubble]}>
                   <ActivityIndicator color={colors.ai} size="small" />
                   <Text style={styles.thinkingText}>Analyzing your medical records…</Text>
@@ -215,7 +268,7 @@ export default function PatientAiScreen() {
               {askAi.isPending ? (
                 <ActivityIndicator color={colors.primaryText} size="small" />
               ) : (
-                <Text style={styles.sendBtnText}>↑</Text>
+                <Ionicons name="arrow-up" size={18} color="#FFFFFF" />
               )}
             </Pressable>
           </View>
@@ -238,8 +291,14 @@ export default function PatientAiScreen() {
               disabled={summary.isFetching}
               style={({ pressed }) => [styles.refreshBtn, pressed && { opacity: 0.85 }]}
             >
+              <Ionicons
+                name="refresh"
+                size={14}
+                color={colors.aiDark}
+                style={summary.isFetching ? { transform: [{ rotate: "45deg" }] } : undefined}
+              />
               <Text style={styles.refreshBtnText}>
-                {summary.isFetching ? "Analyzing…" : "↻ Refresh AI"}
+                {summary.isFetching ? "Analyzing…" : "Refresh"}
               </Text>
             </Pressable>
           </View>
@@ -254,6 +313,7 @@ export default function PatientAiScreen() {
             </View>
           ) : summary.error ? (
             <View style={styles.summaryErrorCard}>
+              <Ionicons name="alert-circle-outline" size={32} color={colors.danger} style={{ marginBottom: spacing.xs }} />
               <Text style={styles.summaryErrorTitle}>Could Not Generate Summary</Text>
               <Text style={styles.summaryErrorSub}>{(summary.error as Error).message}</Text>
             </View>
@@ -269,9 +329,15 @@ export default function PatientAiScreen() {
                     <Text style={styles.flagsHeading}>CLINICAL OBSERVATIONS & ALERTS</Text>
                     {summary.data.flags.map((flag, idx) => (
                       <View key={idx} style={styles.flagItem}>
-                        <Text style={styles.flagIcon}>
-                          {flag.severity === "high" ? "🚨" : flag.severity === "moderate" ? "⚠️" : "ℹ️"}
-                        </Text>
+                        <View style={styles.flagIconBox}>
+                          {flag.severity === "high" ? (
+                            <Ionicons name="alert-circle" size={20} color={colors.danger} />
+                          ) : flag.severity === "moderate" ? (
+                            <Ionicons name="warning" size={19} color={colors.warning} />
+                          ) : (
+                            <Ionicons name="information-circle" size={19} color={colors.info} />
+                          )}
+                        </View>
                         <View style={{ flex: 1 }}>
                           <Text style={styles.flagText}>{flag.text}</Text>
                           <Text style={styles.flagMeta}>
@@ -284,8 +350,9 @@ export default function PatientAiScreen() {
                 ) : null}
 
                 <View style={styles.disclaimerBox}>
+                  <Ionicons name="shield-checkmark-outline" size={16} color={colors.textMuted} />
                   <Text style={styles.disclaimerText}>
-                    🛡️ {summary.data.disclaimer}
+                    {summary.data.disclaimer}
                   </Text>
                 </View>
               </View>
@@ -302,10 +369,10 @@ export default function PatientAiScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
   header: {
+    backgroundColor: colors.surface,
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
     paddingBottom: spacing.sm,
-    backgroundColor: colors.surface,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
@@ -316,36 +383,37 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   aiBadgeCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: radius.xl,
-    backgroundColor: colors.aiLight,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 1.5,
-    borderColor: colors.aiBorder,
+    ...shadows.sm,
   },
-  aiBadgeEmoji: { fontSize: 24 },
-  title: { fontSize: 20, fontWeight: "800", color: colors.text, letterSpacing: -0.4 },
+  title: { fontSize: 18, fontWeight: "800", color: colors.text, letterSpacing: -0.3 },
   modelBadge: {
     backgroundColor: colors.aiLight,
-    paddingHorizontal: spacing.sm,
+    paddingHorizontal: spacing.sm + 2,
     paddingVertical: 2,
     borderRadius: radius.full,
-    alignSelf: "flex-start",
     marginTop: 2,
+    alignSelf: "flex-start",
   },
   modelBadgeText: { fontSize: 10, fontWeight: "700", color: colors.aiDark },
   tabBar: {
     flexDirection: "row",
-    backgroundColor: colors.surfaceSecondary,
+    backgroundColor: colors.backgroundAlt,
     borderRadius: radius.lg,
     padding: 3,
+    gap: 4,
   },
   tabButton: {
     flex: 1,
-    paddingVertical: spacing.sm,
+    flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: spacing.sm,
     borderRadius: radius.md,
   },
   tabButtonActive: {
@@ -353,20 +421,16 @@ const styles = StyleSheet.create({
     ...shadows.sm,
   },
   tabText: { fontSize: 13, fontWeight: "600", color: colors.textMuted },
-  tabTextActive: { color: colors.text, fontWeight: "800" },
+  tabTextActive: { color: colors.aiDark, fontWeight: "700" },
   chatScroll: { flex: 1 },
-  chatScrollContent: { padding: spacing.lg, gap: spacing.md },
+  chatScrollContent: { padding: spacing.md },
   suggestedContainer: { marginBottom: spacing.md },
-  suggestedHeading: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: colors.textMuted,
-    letterSpacing: 0.8,
-    marginBottom: spacing.sm,
-    marginLeft: 2,
-  },
-  promptsGrid: { gap: spacing.xs + 2 },
+  suggestedHeading: { fontSize: 11, fontWeight: "800", color: colors.textMuted, letterSpacing: 0.5 },
+  promptsGrid: { gap: spacing.xs + 2, marginTop: 4 },
   promptCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm + 2,
     backgroundColor: colors.surface,
     padding: spacing.md,
     borderRadius: radius.lg,
@@ -374,116 +438,119 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     ...shadows.sm,
   },
-  promptCardText: { fontSize: 13, color: colors.textSecondary, fontWeight: "600", lineHeight: 18 },
-  msgRow: { flexDirection: "row", gap: spacing.sm, alignItems: "flex-end" },
+  promptIconBox: {
+    width: 32,
+    height: 32,
+    borderRadius: radius.md,
+    backgroundColor: colors.aiLight,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  promptCardText: { fontSize: 13, fontWeight: "600", color: colors.text, flex: 1 },
+  msgRow: { flexDirection: "row", marginBottom: spacing.md, gap: spacing.sm, alignItems: "flex-end" },
   msgRowAi: { justifyContent: "flex-start" },
   msgRowUser: { justifyContent: "flex-end" },
   avatarAi: {
-    width: 32,
-    height: 32,
-    borderRadius: radius.full,
-    backgroundColor: colors.aiLight,
-    borderWidth: 1,
-    borderColor: colors.aiBorder,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 4,
+    marginBottom: 2,
   },
-  avatarEmoji: { fontSize: 16 },
-  bubble: {
-    maxWidth: "82%",
-    padding: spacing.md,
-    borderRadius: radius.xl,
-    ...shadows.sm,
-  },
+  bubble: { maxWidth: "82%", borderRadius: radius.xl, padding: spacing.md, ...shadows.sm },
   bubbleAi: {
     backgroundColor: colors.surface,
+    borderBottomLeftRadius: radius.xs,
     borderWidth: 1,
     borderColor: colors.border,
-    borderBottomLeftRadius: 4,
   },
   bubbleUser: {
     backgroundColor: colors.primary,
-    borderBottomRightRadius: 4,
+    borderBottomRightRadius: radius.xs,
   },
-  bubbleText: { fontSize: 14, lineHeight: 20 },
-  bubbleTextAi: { color: colors.text },
-  bubbleTextUser: { color: colors.primaryText, fontWeight: "500" },
-  bubbleFooter: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "flex-end",
-    marginTop: spacing.xs,
-    gap: spacing.sm,
-  },
-  timeText: { fontSize: 10 },
-  timeTextAi: { color: colors.textMuted },
-  timeTextUser: { color: "rgba(255, 255, 255, 0.75)" },
-  tokenPill: { fontSize: 9, color: colors.aiDark, backgroundColor: colors.aiLight, paddingHorizontal: 4, borderRadius: radius.xs },
   thinkingBubble: {
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.sm,
-    paddingVertical: spacing.md,
+    backgroundColor: colors.aiLight,
+    borderColor: colors.aiBorder,
   },
-  thinkingText: { color: colors.aiDark, fontSize: 13, fontWeight: "600" },
+  thinkingText: { fontSize: 13, color: colors.aiDark, fontWeight: "600" },
+  bubbleText: { fontSize: 14, lineHeight: 20 },
+  bubbleTextAi: { color: colors.text },
+  bubbleTextUser: { color: colors.primaryText, fontWeight: "500" },
+  bubbleFooter: { flexDirection: "row", justifyContent: "flex-end", alignItems: "center", marginTop: 4, gap: spacing.sm },
+  timeText: { fontSize: 10 },
+  timeTextAi: { color: colors.textMuted },
+  timeTextUser: { color: "rgba(255, 255, 255, 0.75)" },
+  tokenPill: {
+    fontSize: 9,
+    color: colors.aiDark,
+    backgroundColor: colors.aiLight,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: radius.xs,
+    fontWeight: "700",
+  },
   inputBar: {
     flexDirection: "row",
     alignItems: "flex-end",
-    padding: spacing.md,
     backgroundColor: colors.surface,
     borderTopWidth: 1,
     borderTopColor: colors.border,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
     gap: spacing.sm,
   },
   chatInput: {
     flex: 1,
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
+    minHeight: 40,
+    maxHeight: 100,
+    backgroundColor: colors.backgroundAlt,
     borderRadius: radius.xl,
-    paddingHorizontal: spacing.md + 2,
-    paddingVertical: spacing.sm + 2,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
     fontSize: 14,
     color: colors.text,
-    maxHeight: 100,
   },
   sendBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: radius.full,
-    backgroundColor: colors.primary,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.ai,
     alignItems: "center",
     justifyContent: "center",
-    ...shadows.sm,
   },
   sendBtnDisabled: { backgroundColor: colors.border },
-  sendBtnText: { color: colors.primaryText, fontSize: 20, fontWeight: "800" },
   summaryScroll: { flex: 1 },
-  summaryScrollContent: { padding: spacing.lg },
+  summaryScrollContent: { padding: spacing.md },
   summaryHeroCard: {
-    flexDirection: "row",
-    alignItems: "center",
     backgroundColor: colors.surface,
     borderRadius: radius.xl,
     padding: spacing.lg,
     borderWidth: 1,
     borderColor: colors.border,
-    marginBottom: spacing.lg,
-    ...shadows.sm,
+    flexDirection: "row",
+    alignItems: "flex-start",
     gap: spacing.md,
+    marginBottom: spacing.md,
+    ...shadows.sm,
   },
-  summaryHeroTitle: { fontSize: 18, fontWeight: "800", color: colors.text, letterSpacing: -0.3 },
-  summaryHeroSub: { color: colors.textMuted, fontSize: 12, marginTop: 2, lineHeight: 16 },
+  summaryHeroTitle: { fontSize: 16, fontWeight: "800", color: colors.text },
+  summaryHeroSub: { fontSize: 12, color: colors.textMuted, marginTop: 4, lineHeight: 17 },
   refreshBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
     backgroundColor: colors.aiLight,
-    borderWidth: 1,
-    borderColor: colors.aiBorder,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    borderRadius: radius.lg,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.aiBorder,
   },
-  refreshBtnText: { color: colors.aiDark, fontWeight: "700", fontSize: 12 },
+  refreshBtnText: { fontSize: 12, fontWeight: "700", color: colors.aiDark },
   summaryLoadingCard: {
     backgroundColor: colors.surface,
     borderRadius: radius.xl,
@@ -491,19 +558,20 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderWidth: 1,
     borderColor: colors.border,
-    ...shadows.sm,
+    gap: spacing.sm,
   },
-  summaryLoadingTitle: { fontSize: 16, fontWeight: "700", color: colors.text, marginTop: spacing.md },
-  summaryLoadingSub: { fontSize: 12, color: colors.textMuted, textAlign: "center", marginTop: spacing.xs, lineHeight: 16 },
+  summaryLoadingTitle: { fontSize: 15, fontWeight: "700", color: colors.text },
+  summaryLoadingSub: { fontSize: 12, color: colors.textMuted, textAlign: "center", lineHeight: 17 },
   summaryErrorCard: {
     backgroundColor: colors.dangerLight,
-    padding: spacing.lg,
     borderRadius: radius.xl,
+    padding: spacing.xl,
+    alignItems: "center",
     borderWidth: 1,
-    borderColor: "#FECACA",
+    borderColor: colors.dangerBorder,
   },
-  summaryErrorTitle: { fontSize: 15, fontWeight: "700", color: colors.danger },
-  summaryErrorSub: { fontSize: 12, color: colors.danger, marginTop: 2 },
+  summaryErrorTitle: { fontSize: 15, fontWeight: "700", color: colors.dangerText },
+  summaryErrorSub: { fontSize: 12, color: colors.dangerText, textAlign: "center", marginTop: 4 },
   summaryContentCard: {
     backgroundColor: colors.surface,
     borderRadius: radius.xl,
@@ -512,31 +580,34 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     ...shadows.sm,
   },
-  summaryBody: { fontSize: 14, lineHeight: 22, color: colors.text },
+  summaryBody: { fontSize: 14, color: colors.textSecondary, lineHeight: 22 },
   flagsSection: {
     marginTop: spacing.lg,
     paddingTop: spacing.md,
     borderTopWidth: 1,
     borderTopColor: colors.borderLight,
   },
-  flagsHeading: { fontSize: 11, fontWeight: "700", color: colors.textMuted, letterSpacing: 0.8, marginBottom: spacing.sm },
+  flagsHeading: { fontSize: 11, fontWeight: "800", color: colors.textMuted, letterSpacing: 0.5, marginBottom: spacing.sm },
   flagItem: {
     flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: colors.surfaceSecondary,
-    padding: spacing.md,
-    borderRadius: radius.lg,
-    marginBottom: spacing.xs + 2,
+    alignItems: "flex-start",
     gap: spacing.sm,
+    backgroundColor: colors.backgroundAlt,
+    padding: spacing.sm + 2,
+    borderRadius: radius.md,
+    marginBottom: spacing.xs,
   },
-  flagIcon: { fontSize: 18 },
+  flagIconBox: { width: 22, alignItems: "center", justifyContent: "center", marginTop: 1 },
   flagText: { fontSize: 13, fontWeight: "600", color: colors.text },
-  flagMeta: { fontSize: 11, color: colors.textMuted, marginTop: 1, textTransform: "capitalize" },
+  flagMeta: { fontSize: 11, color: colors.textMuted, marginTop: 2, textTransform: "capitalize" },
   disclaimerBox: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 6,
     marginTop: spacing.lg,
+    backgroundColor: colors.backgroundAlt,
     padding: spacing.md,
-    backgroundColor: colors.surfaceSecondary,
-    borderRadius: radius.lg,
+    borderRadius: radius.md,
   },
-  disclaimerText: { fontSize: 11, color: colors.textMuted, lineHeight: 16, textAlign: "center" },
+  disclaimerText: { fontSize: 11, color: colors.textMuted, lineHeight: 16, flex: 1 },
 });

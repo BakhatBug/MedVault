@@ -1,3 +1,5 @@
+import { Feather, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import { Link, useRouter } from "expo-router";
 import { useState } from "react";
 import {
@@ -87,9 +89,14 @@ export default function RegisterScreen() {
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
           {/* Brand Header */}
           <View style={styles.brand}>
-            <View style={styles.logoBadge}>
-              <Text style={styles.logoIcon}>🩺</Text>
-            </View>
+            <LinearGradient
+              colors={[colors.primaryLight, colors.surface]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.logoBadge}
+            >
+              <MaterialCommunityIcons name="stethoscope" size={32} color={colors.primary} />
+            </LinearGradient>
             <Text style={styles.brandTitle}>MediVault</Text>
             <Text style={styles.brandSubtitle}>INTELLIGENT HEALTHCARE RECORDS</Text>
           </View>
@@ -103,12 +110,13 @@ export default function RegisterScreen() {
             <View style={styles.roleGrid}>
               {(
                 [
-                  { id: "PATIENT", label: "Patient", icon: "👤", desc: "Personal Vault" },
-                  { id: "DOCTOR", label: "Doctor", icon: "🩺", desc: "Clinical EHR" },
-                  { id: "CAREGIVER", label: "Caregiver", icon: "🤝", desc: "Family Proxy" },
+                  { id: "PATIENT", label: "Patient", iconFamily: "Ionicons", iconName: "person-outline", desc: "Personal Vault" },
+                  { id: "DOCTOR", label: "Doctor", iconFamily: "MaterialCommunityIcons", iconName: "stethoscope", desc: "Clinical EHR" },
+                  { id: "CAREGIVER", label: "Caregiver", iconFamily: "Ionicons", iconName: "people-outline", desc: "Family Proxy" },
                 ] as const
               ).map((item) => {
                 const isSelected = role === item.id;
+                const iconColor = isSelected ? colors.primaryDark : colors.textMuted;
                 return (
                   <Pressable
                     key={item.id}
@@ -118,7 +126,11 @@ export default function RegisterScreen() {
                     }}
                     style={[styles.roleOption, isSelected && styles.roleOptionActive]}
                   >
-                    <Text style={styles.roleIcon}>{item.icon}</Text>
+                    {item.iconFamily === "MaterialCommunityIcons" ? (
+                      <MaterialCommunityIcons name={item.iconName as any} size={20} color={iconColor} style={{ marginBottom: 3 }} />
+                    ) : (
+                      <Ionicons name={item.iconName as any} size={20} color={iconColor} style={{ marginBottom: 3 }} />
+                    )}
                     <Text style={[styles.roleOptionLabel, isSelected && styles.roleOptionLabelActive]}>
                       {item.label}
                     </Text>
@@ -232,7 +244,7 @@ export default function RegisterScreen() {
 
             {error ? (
               <View style={styles.errorBox}>
-                <Text style={styles.errorIcon}>⚠️</Text>
+                <Ionicons name="alert-circle" size={16} color={colors.danger} />
                 <Text style={styles.errorText}>{error}</Text>
               </View>
             ) : null}
@@ -269,7 +281,7 @@ export default function RegisterScreen() {
 
           {/* Privacy Disclaimer */}
           <View style={styles.trustBanner}>
-            <Text style={styles.trustEmoji}>🔒</Text>
+            <Ionicons name="shield-checkmark-outline" size={16} color={colors.textMuted} />
             <Text style={styles.trustText}>
               256-Bit Cryptographic Vault & Zero-Trust Access Control. AI-extracted records provide clinical decision
               support.

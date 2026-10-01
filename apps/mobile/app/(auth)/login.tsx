@@ -1,3 +1,5 @@
+import { Feather, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import { Link } from "expo-router";
 import { useState } from "react";
 import {
@@ -58,13 +60,18 @@ export default function LoginScreen() {
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
           {/* Brand Emblem */}
           <View style={styles.brand}>
-            <View style={styles.logoBadge}>
-              <Text style={{ fontSize: 32 }}>🏥</Text>
-            </View>
+            <LinearGradient
+              colors={[colors.primaryLight, colors.surface]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.logoBadge}
+            >
+              <Ionicons name="shield-checkmark" size={32} color={colors.primary} />
+            </LinearGradient>
             <Text style={styles.brandTitle}>MediVault</Text>
             <Text style={styles.brandTagline}>Patient-Centric AI Medical Records Platform</Text>
             <View style={styles.securityPill}>
-              <Text style={{ fontSize: 11 }}>🔒</Text>
+              <Ionicons name="lock-closed" size={11} color={colors.primaryDark} />
               <Text style={styles.securityText}>HIPAA-Compliant · FHIR Structured</Text>
             </View>
           </View>
@@ -102,7 +109,12 @@ export default function LoginScreen() {
               />
             </View>
 
-            {error ? <Text style={styles.error}>{error}</Text> : null}
+            {error ? (
+              <View style={styles.errorBox}>
+                <Ionicons name="alert-circle" size={15} color={colors.danger} />
+                <Text style={styles.error}>{error}</Text>
+              </View>
+            ) : null}
 
             <Pressable
               onPress={onSubmit}
@@ -128,13 +140,15 @@ export default function LoginScreen() {
                   onPress={() => fillDemo("talhabakhat1122@gmail.com", "password123")}
                   style={({ pressed }) => [styles.demoChip, pressed && { opacity: 0.8 }]}
                 >
-                  <Text style={styles.demoChipText}>👤 Patient (Ahmad)</Text>
+                  <Ionicons name="person" size={12} color={colors.primaryDark} style={{ marginRight: 4 }} />
+                  <Text style={styles.demoChipText}>Patient (Ahmad)</Text>
                 </Pressable>
                 <Pressable
                   onPress={() => fillDemo("dr.sarah@hospital.org", "DoctorPass123!")}
                   style={({ pressed }) => [styles.demoChip, pressed && { opacity: 0.8 }]}
                 >
-                  <Text style={styles.demoChipText}>👨‍⚕️ Doctor (Dr. Sarah)</Text>
+                  <MaterialCommunityIcons name="doctor" size={14} color={colors.primaryDark} style={{ marginRight: 4 }} />
+                  <Text style={styles.demoChipText}>Doctor (Dr. Sarah)</Text>
                 </Pressable>
               </View>
             </View>
@@ -223,16 +237,29 @@ const styles = StyleSheet.create({
   demoRow: { flexDirection: "row", gap: spacing.sm },
   demoChip: {
     flex: 1,
+    flexDirection: "row",
     backgroundColor: colors.backgroundAlt,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.sm,
     borderRadius: radius.md,
     alignItems: "center",
+    justifyContent: "center",
     borderWidth: 1,
     borderColor: colors.border,
   },
   demoChipText: { fontSize: 11, fontWeight: "700", color: colors.textSecondary },
   hint: { marginTop: spacing.lg, color: colors.textMuted, textAlign: "center", fontSize: 13 },
   link: { color: colors.primary, fontWeight: "800" },
-  error: { marginTop: spacing.md, color: colors.danger, fontSize: 13, fontWeight: "600" },
+  errorBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: colors.dangerLight,
+    borderWidth: 1,
+    borderColor: "#FECACA",
+    padding: spacing.sm + 2,
+    borderRadius: radius.md,
+    marginTop: spacing.md,
+    gap: spacing.xs,
+  },
+  error: { color: colors.danger, fontSize: 12, fontWeight: "600", flex: 1 },
 });

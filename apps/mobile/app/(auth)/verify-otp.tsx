@@ -1,3 +1,5 @@
+import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -130,9 +132,14 @@ export default function VerifyOtpScreen() {
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
           {/* Header */}
           <View style={styles.brand}>
-            <View style={styles.iconCircle}>
-              <Text style={styles.iconEmoji}>🔐</Text>
-            </View>
+            <LinearGradient
+              colors={[colors.primaryLight, colors.surface]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.iconCircle}
+            >
+              <Ionicons name="shield-checkmark-outline" size={28} color={colors.primary} />
+            </LinearGradient>
             <Text style={styles.title}>2-Step Verification</Text>
             <Text style={styles.subtitle}>
               We sent a 6-digit cryptographic verification code to{"\n"}
@@ -180,7 +187,8 @@ export default function VerifyOtpScreen() {
 
             {error ? (
               <View style={styles.errorBox}>
-                <Text style={styles.errorText}>⚠️ {error}</Text>
+                <Ionicons name="alert-circle" size={15} color={colors.danger} />
+                <Text style={styles.errorText}>{error}</Text>
               </View>
             ) : null}
 
@@ -299,12 +307,16 @@ const styles = StyleSheet.create({
   },
   cellFilled: { borderColor: colors.primary, backgroundColor: colors.surface },
   errorBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     backgroundColor: colors.dangerLight,
     borderWidth: 1,
     borderColor: "#FECACA",
     padding: spacing.sm + 2,
     borderRadius: radius.md,
     marginTop: spacing.sm,
+    gap: 6,
   },
   errorText: { color: colors.danger, fontSize: 12, fontWeight: "600", textAlign: "center" },
   spinner: {

@@ -1,6 +1,7 @@
 import { Tabs } from "expo-router";
-import { Text } from "react-native";
-import { colors, radius, spacing } from "../../lib/theme";
+import { View, StyleSheet } from "react-native";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { colors } from "../../lib/theme";
 
 export default function PatientLayout() {
   return (
@@ -25,7 +26,7 @@ export default function PatientLayout() {
           backgroundColor: colors.surface,
           borderTopColor: colors.border,
           borderTopWidth: 1,
-          height: 60,
+          height: 62,
           paddingBottom: 8,
           paddingTop: 6,
           elevation: 2,
@@ -43,7 +44,11 @@ export default function PatientLayout() {
           title: "Home",
           tabBarLabel: "Home",
           tabBarIcon: ({ color, focused }) => (
-            <Text style={{ fontSize: 18, opacity: focused ? 1 : 0.7 }}>🏠</Text>
+            <Ionicons
+              name={focused ? "home" : "home-outline"}
+              size={22}
+              color={color}
+            />
           ),
         }}
       />
@@ -53,7 +58,11 @@ export default function PatientLayout() {
           title: "Vault Records",
           tabBarLabel: "Records",
           tabBarIcon: ({ color, focused }) => (
-            <Text style={{ fontSize: 18, opacity: focused ? 1 : 0.7 }}>📁</Text>
+            <Ionicons
+              name={focused ? "folder" : "folder-outline"}
+              size={22}
+              color={color}
+            />
           ),
         }}
       />
@@ -63,7 +72,11 @@ export default function PatientLayout() {
           title: "AI Assistant",
           tabBarLabel: "AI Insights",
           tabBarIcon: ({ color, focused }) => (
-            <Text style={{ fontSize: 18, opacity: focused ? 1 : 0.7 }}>🧠</Text>
+            <Ionicons
+              name={focused ? "sparkles" : "sparkles-outline"}
+              size={22}
+              color={focused ? colors.ai : color}
+            />
           ),
         }}
       />
@@ -73,7 +86,11 @@ export default function PatientLayout() {
           title: "Medications",
           tabBarLabel: "Meds",
           tabBarIcon: ({ color, focused }) => (
-            <Text style={{ fontSize: 18, opacity: focused ? 1 : 0.7 }}>💊</Text>
+            <MaterialCommunityIcons
+              name={focused ? "pill" : "pill"}
+              size={22}
+              color={color}
+            />
           ),
         }}
       />
@@ -83,7 +100,11 @@ export default function PatientLayout() {
           title: "My Profile",
           tabBarLabel: "Profile",
           tabBarIcon: ({ color, focused }) => (
-            <Text style={{ fontSize: 18, opacity: focused ? 1 : 0.7 }}>👤</Text>
+            <Ionicons
+              name={focused ? "person" : "person-outline"}
+              size={22}
+              color={color}
+            />
           ),
         }}
       />

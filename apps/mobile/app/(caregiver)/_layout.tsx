@@ -1,6 +1,6 @@
 import { Tabs } from "expo-router";
-import { Text } from "react-native";
-import { colors, radius } from "../../lib/theme";
+import { Ionicons } from "@expo/vector-icons";
+import { colors } from "../../lib/theme";
 
 export default function CaregiverLayout() {
   return (
@@ -23,7 +23,7 @@ export default function CaregiverLayout() {
           backgroundColor: colors.surface,
           borderTopColor: colors.borderLight,
           borderTopWidth: 1,
-          height: 60,
+          height: 62,
           paddingBottom: 8,
           paddingTop: 6,
         },
@@ -38,8 +38,12 @@ export default function CaregiverLayout() {
         name="index"
         options={{
           title: "Patients",
-          tabBarIcon: ({ focused }) => (
-            <Text style={{ fontSize: 20, opacity: focused ? 1 : 0.6 }}>👥</Text>
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons
+              name={focused ? "people" : "people-outline"}
+              size={22}
+              color={color}
+            />
           ),
         }}
       />
@@ -47,8 +51,12 @@ export default function CaregiverLayout() {
         name="profile"
         options={{
           title: "Profile",
-          tabBarIcon: ({ focused }) => (
-            <Text style={{ fontSize: 20, opacity: focused ? 1 : 0.6 }}>⚙️</Text>
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons
+              name={focused ? "settings" : "settings-outline"}
+              size={22}
+              color={color}
+            />
           ),
         }}
       />

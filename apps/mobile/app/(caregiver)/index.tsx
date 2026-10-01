@@ -1,3 +1,4 @@
+import { Feather, Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import { ActivityIndicator, Alert, Pressable, RefreshControl, StyleSheet, Text, View } from "react-native";
@@ -134,7 +135,7 @@ export default function CaregiverHome() {
           </View>
         ) : active.length === 0 ? (
           <View style={styles.emptyCard}>
-            <Text style={styles.emptyEmoji}>🤝</Text>
+            <Ionicons name="people-outline" size={44} color={colors.textMuted} style={{ marginBottom: spacing.md }} />
             <Text style={styles.emptyTitle}>No Active Patient Proxies</Text>
             <Text style={styles.emptySub}>
               When a family member or patient links you as their caregiver from their account, their vault will appear
@@ -171,7 +172,8 @@ export default function CaregiverHome() {
                   </View>
                 </View>
                 <View style={styles.viewBadge}>
-                  <Text style={styles.viewBadgeText}>Open Vault ›</Text>
+                  <Text style={styles.viewBadgeText}>Open Vault</Text>
+                  <Feather name="chevron-right" size={13} color={colors.primary} />
                 </View>
               </Pressable>
             );
@@ -325,12 +327,15 @@ const styles = StyleSheet.create({
     color: colors.primary,
   },
   viewBadge: {
+    flexDirection: "row",
+    alignItems: "center",
     backgroundColor: colors.surfaceSecondary,
     paddingHorizontal: spacing.sm + 2,
-    paddingVertical: 6,
+    paddingVertical: 5,
     borderRadius: radius.full,
     borderWidth: 1,
     borderColor: colors.border,
+    gap: 3,
   },
   viewBadgeText: {
     fontSize: 12,
