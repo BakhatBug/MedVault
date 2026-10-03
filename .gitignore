@@ -7,14 +7,35 @@ dist/
 build/
 *.tsbuildinfo
 
-# env / secrets
+# env / secrets / credentials
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
 *.pem
 *.key
+*.ppk
+*.pub
+*.id_rsa
+*.id_ed25519
+*.cer
+*.crt
+.aws/
+aws-creds/
+credentials/
+*credentials*
+*secret*
 
-# logs
+# terraform state & secrets
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+.terraform/
+.terraform.lock.hcl
+
+# editor & AI agents
+.claude/
+.gemini/
 logs/
 *.log
 npm-debug.log*

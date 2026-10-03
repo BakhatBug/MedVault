@@ -15,6 +15,7 @@
     "lint": "npm run lint --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
     "db:generate": "npm run db:generate --workspace=@medivault/api",
+    "db:push": "prisma db push",
     "db:migrate": "npm run db:migrate --workspace=@medivault/api",
     "db:studio": "npm run db:studio --workspace=@medivault/api",
     "infra:up": "docker compose up -d",
@@ -24,6 +25,9 @@
   "engines": {
     "node": ">=20.10.0",
     "npm": ">=10.0.0"
+  },
+  "prisma": {
+    "schema": "apps/api/prisma/schema.prisma"
   },
   "devDependencies": {
     "typescript": "^5.6.3",
