@@ -64,8 +64,35 @@ async function buildApp() {
 
   await app.register(helmet, { contentSecurityPolicy: false });
   await app.register(cors, {
-    origin: config.NODE_ENV === "development" ? true : false,
+    origin: (origin, cb) => {
+      // Allow requests with no origin (like mobile apps, curl, server-to-server)
+      if (!origin) return cb(null, true);
+
+      // If set to "*", allow any origin
+      if (!config.CORS_ORIGIN || config.CORS_ORIGIN === "*") {
+        return cb(null, true);
+      }
+
+      // Allow comma-separated origins from .env (e.g. "http://localhost:8081,https://app.medvault.com")
+      const allowedOrigins = config.CORS_ORIGIN.split(",").map((o) => o.trim());
+      if (allowedOrigins.includes(origin) || allowedOrigins.includes("*")) {
+        return cb(null, true);
+      }
+
+      return cb(new Error("Not allowed by CORS"), false);
+    },
     credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+      "x-request-id",
+      "Accept",
+      "Origin",
+      "X-Requested-With",
+    ],
+    exposedHeaders: ["x-request-id"],
+    maxAge: 86400, // 24-hour preflight cache
   });
   await app.register(sensible);
   await app.register(rateLimit, {

@@ -5,6 +5,7 @@ const Schema = z.object({
   API_PORT: z.coerce.number().int().nonnegative().default(3001),
   API_HOST: z.string().default("0.0.0.0"),
   LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace"]).default("info"),
+  CORS_ORIGIN: z.string().default("*"),
 
   DATABASE_URL: z.string().url(),
 
